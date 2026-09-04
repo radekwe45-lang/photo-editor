@@ -65,10 +65,11 @@ Aperture does **not** ship model weights. You operate the backend. No CSAM featu
 
 - Upload / drag-and-drop images
 - Crop, rotate +/-90 deg, flip H/V
-- Exposure / contrast / saturation (client canvas)
+- Exposure / contrast / saturation / temperature / tint / highlights / shadows (client canvas)
+- Hold `\` or the eye toolbar button for before/after compare (live adjustments off while held)
 - Brush / eraser mask overlay for inpaint
 - Undo / redo, zoom, pan
-- Generative panel to `POST /api/edit`
+- Generative panel to `POST /api/edit` with Mock/Live API badge (`GET /api/edit`)
 - Export PNG / JPEG / WebP
 
 ### Project structure
@@ -128,9 +129,10 @@ Aperture **nie** zawiera wag modeli. Ty kontrolujesz backend. Brak funkcji CSAM 
 
 - Otwieranie / przeciaganie zdjec
 - Kadrowanie, obrot, odbicie
-- Ekspozycja / kontrast / nasycenie
+- Ekspozycja / kontrast / nasycenie / temperatura / tint / highlights / shadows
+- Porownanie przed/po: przytrzymaj `\` lub ikone oka na pasku
 - Maska pedzlem, cofnij/ponow, zoom
-- Panel generatywny (`/api/edit`)
+- Panel generatywny (`/api/edit`) z odznaka Mock/Live API
 - Eksport PNG / JPEG / WebP
 
 ### Struktura

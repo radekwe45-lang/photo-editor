@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 
 interface Props {
@@ -15,6 +15,26 @@ export function GenerativePanel({ disabled, hasMask, onGenerate }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modeHint, setModeHint] = useState<string | null>(null);
+  const [apiMode, setApiMode] = useState<"mock" | "live" | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/edit");
+        if (!res.ok) return;
+        const json = (await res.json()) as { mode?: string };
+        if (!cancelled && (json.mode === "mock" || json.mode === "live")) {
+          setApiMode(json.mode);
+        }
+      } catch {
+        /* badge stays hidden if probe fails */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +59,22 @@ export function GenerativePanel({ disabled, hasMask, onGenerate }: Props) {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-chrome-400">
           Generative edit
         </h2>
+        {apiMode && (
+          <span
+            className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              apiMode === "mock"
+                ? "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30"
+                : "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
+            }`}
+            title={
+              apiMode === "mock"
+                ? "MOCK_IMAGE_API or missing IMAGE_API_BASE_URL"
+                : "Forwarding to IMAGE_API_BASE_URL"
+            }
+          >
+            {apiMode === "mock" ? "Mock API" : "Live API"}
+          </span>
+        )}
       </div>
       <p className="text-[11px] leading-relaxed text-chrome-500">
         Prompt-based inpaint / edit via <code className="text-chrome-400">/api/edit</code>.

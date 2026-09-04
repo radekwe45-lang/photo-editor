@@ -158,3 +158,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+/** GET /api/edit — report whether the edit proxy is in mock or live mode. */
+export async function GET() {
+  const mode = isMock() ? "mock" : "live";
+  return NextResponse.json(
+    { mode },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+}
+
