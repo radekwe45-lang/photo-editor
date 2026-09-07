@@ -86,6 +86,34 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
         onChange={(saturation) => onChange({ ...value, saturation })}
         onCommit={onCommit}
       />
+      <SliderRow
+        label="Temperature"
+        value={value.temperature}
+        disabled={disabled}
+        onChange={(temperature) => onChange({ ...value, temperature })}
+        onCommit={onCommit}
+      />
+      <SliderRow
+        label="Tint"
+        value={value.tint}
+        disabled={disabled}
+        onChange={(tint) => onChange({ ...value, tint })}
+        onCommit={onCommit}
+      />
+      <SliderRow
+        label="Highlights"
+        value={value.highlights}
+        disabled={disabled}
+        onChange={(highlights) => onChange({ ...value, highlights })}
+        onCommit={onCommit}
+      />
+      <SliderRow
+        label="Shadows"
+        value={value.shadows}
+        disabled={disabled}
+        onChange={(shadows) => onChange({ ...value, shadows })}
+        onCommit={onCommit}
+      />
     </section>
   );
 }

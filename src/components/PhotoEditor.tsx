@@ -29,6 +29,18 @@ interface Snapshot {
   adjustments: Adjustments;
 }
 
+function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
+  return (
+    a.exposure === b.exposure &&
+    a.contrast === b.contrast &&
+    a.saturation === b.saturation &&
+    a.temperature === b.temperature &&
+    a.tint === b.tint &&
+    a.highlights === b.highlights &&
+    a.shadows === b.shadows
+  );
+}
+
 export function PhotoEditor() {
   const fileRef = useRef<HTMLInputElement>(null);
   const history = useHistory<Snapshot | null>(null);
@@ -39,9 +51,11 @@ export function PhotoEditor() {
   const [exportOpen, setExportOpen] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [dragOver, setDragOver] = useState(false);
+  const [comparing, setComparing] = useState(false);
 
   const snap = history.present;
   const hasImage = !!snap?.imageSrc;
+  const previewAdj = comparing ? DEFAULT_ADJUSTMENTS : liveAdj;
 
   useEffect(() => {
     if (snap) setLiveAdj(snap.adjustments);
@@ -69,6 +83,7 @@ export function PhotoEditor() {
       setZoom(1);
       setPanOffset({ x: 0, y: 0 });
       setTool("select");
+      setComparing(false);
     };
     reader.readAsDataURL(file);
   }
@@ -147,11 +162,7 @@ export function PhotoEditor() {
 
   function onAdjCommit() {
     if (!snap) return;
-    if (
-      liveAdj.exposure === snap.adjustments.exposure &&
-      liveAdj.contrast === snap.adjustments.contrast &&
-      liveAdj.saturation === snap.adjustments.saturation
-    ) {
+    if (adjustmentsEqual(liveAdj, snap.adjustments)) {
       return;
     }
     commitSnapshot({
@@ -241,7 +252,7 @@ export function PhotoEditor() {
   }
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    function onKeyDown(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey;
       if (meta && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -255,6 +266,12 @@ export function PhotoEditor() {
         return;
       }
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      // Hold \ to show before (no live adjustments)
+      if (e.key === "\\" || e.code === "Backslash") {
+        e.preventDefault();
+        if (hasImage && !e.repeat) setComparing(true);
         return;
       }
       const k = e.key.toLowerCase();
@@ -274,8 +291,22 @@ export function PhotoEditor() {
         setPanOffset({ x: 0, y: 0 });
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.key === "\\" || e.code === "Backslash") {
+        setComparing(false);
+      }
+    }
+    function onBlur() {
+      setComparing(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
   }, [history, hasImage]);
 
   return (
@@ -308,6 +339,9 @@ export function PhotoEditor() {
         onUpload={onUploadClick}
         onExport={() => setExportOpen(true)}
         hasImage={hasImage}
+        comparing={comparing}
+        onCompareStart={() => setComparing(true)}
+        onCompareEnd={() => setComparing(false)}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -353,6 +387,7 @@ export function PhotoEditor() {
               <span className="kbd">E</span><span>Eraser</span>
               <span className="kbd">C</span><span>Crop</span>
               <span className="kbd">H</span><span>Pan</span>
+              <span className="kbd">\\</span><span>Hold: before / after</span>
               <span className="kbd">⌘Z</span><span>Undo</span>
               <span className="kbd">⌘⇧Z</span><span>Redo</span>
               <span className="kbd">+/-</span><span>Zoom</span>
@@ -364,7 +399,7 @@ export function PhotoEditor() {
           <EditorCanvas
             imageSrc={snap?.imageSrc ?? null}
             maskSrc={snap?.maskSrc ?? null}
-            adjustments={liveAdj}
+            adjustments={previewAdj}
             tool={tool}
             zoom={zoom}
             brushSize={brushSize}
@@ -373,6 +408,11 @@ export function PhotoEditor() {
             panOffset={panOffset}
             onPanOffset={setPanOffset}
           />
+          {comparing && hasImage && (
+            <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-chrome-200 ring-1 ring-white/10">
+              Before
+            </div>
+          )}
           {dragOver && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-accent bg-accent/10 text-sm font-medium text-accent-glow">
               Drop image to open

@@ -17,13 +17,27 @@ export function applyAdjustments(
   height: number,
   adj: Adjustments
 ): void {
-  if (adj.exposure === 0 && adj.contrast === 0 && adj.saturation === 0) return;
+  if (
+    adj.exposure === 0 &&
+    adj.contrast === 0 &&
+    adj.saturation === 0 &&
+    adj.temperature === 0 &&
+    adj.tint === 0 &&
+    adj.highlights === 0 &&
+    adj.shadows === 0
+  ) {
+    return;
+  }
 
   const imageData = ctx.getImageData(0, 0, width, height);
   const d = imageData.data;
   const exposure = adj.exposure / 100; // -1..1
   const contrast = adj.contrast / 100;
   const saturation = adj.saturation / 100;
+  const temperature = adj.temperature / 100;
+  const tint = adj.tint / 100;
+  const highlights = adj.highlights / 100;
+  const shadows = adj.shadows / 100;
   const contrastFactor = (1 + contrast) / (1.0001 - contrast);
   const exposureMul = Math.pow(2, exposure);
 
@@ -35,6 +49,43 @@ export function applyAdjustments(
     r = (r - 128) * contrastFactor + 128;
     g = (g - 128) * contrastFactor + 128;
     b = (b - 128) * contrastFactor + 128;
+
+    // Luminance for highlights / shadows masks (0..1)
+    let lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    lum = Math.max(0, Math.min(1, lum));
+
+    // Highlights: lift/crush bright pixels (mask ~ lum^2)
+    if (highlights !== 0) {
+      const hMask = lum * lum;
+      const hAmt = highlights * hMask * 64;
+      r += hAmt;
+      g += hAmt;
+      b += hAmt;
+    }
+
+    // Shadows: lift/crush dark pixels (mask ~ (1-lum)^2)
+    if (shadows !== 0) {
+      const sMask = (1 - lum) * (1 - lum);
+      const sAmt = shadows * sMask * 64;
+      r += sAmt;
+      g += sAmt;
+      b += sAmt;
+    }
+
+    // Temperature: warm (+) boosts R / cuts B; cool (-) opposite
+    if (temperature !== 0) {
+      const tAmt = temperature * 40;
+      r += tAmt;
+      b -= tAmt;
+    }
+
+    // Tint: magenta (+) boosts R+B / cuts G; green (-) opposite
+    if (tint !== 0) {
+      const tintAmt = tint * 30;
+      r += tintAmt * 0.5;
+      g -= tintAmt;
+      b += tintAmt * 0.5;
+    }
 
     const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     r = gray + (r - gray) * (1 + saturation);

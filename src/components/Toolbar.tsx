@@ -16,6 +16,7 @@ import {
   ZoomOut,
   Download,
   Upload,
+  Eye,
 } from "lucide-react";
 import type { Tool } from "@/lib/types";
 
@@ -34,6 +35,9 @@ interface ToolbarProps {
   onUpload: () => void;
   onExport: () => void;
   hasImage: boolean;
+  comparing: boolean;
+  onCompareStart: () => void;
+  onCompareEnd: () => void;
 }
 
 function ToolBtn({
@@ -42,12 +46,18 @@ function ToolBtn({
   onClick,
   disabled,
   children,
+  onPointerDown,
+  onPointerUp,
+  onPointerLeave,
 }: {
   active?: boolean;
   title: string;
-  onClick: () => void;
+  onClick?: () => void;
   disabled?: boolean;
   children: React.ReactNode;
+  onPointerDown?: () => void;
+  onPointerUp?: () => void;
+  onPointerLeave?: () => void;
 }) {
   return (
     <button
@@ -55,6 +65,9 @@ function ToolBtn({
       title={title}
       disabled={disabled}
       onClick={onClick}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerLeave}
       className={`btn h-8 w-8 p-0 ${active ? "btn-active" : ""}`}
     >
       {children}
@@ -82,6 +95,9 @@ export function Toolbar(props: ToolbarProps) {
     onUpload,
     onExport,
     hasImage,
+    comparing,
+    onCompareStart,
+    onCompareEnd,
   } = props;
 
   return (
@@ -156,6 +172,21 @@ export function Toolbar(props: ToolbarProps) {
       </button>
       <ToolBtn title="Zoom in" onClick={() => onZoom(Math.min(5, zoom + 0.1))} disabled={!hasImage}>
         <ZoomIn size={16} />
+      </ToolBtn>
+
+      <Divider />
+
+      <ToolBtn
+        title="Hold to compare before / after (\\)"
+        active={comparing}
+        disabled={!hasImage}
+        onPointerDown={() => {
+          if (hasImage) onCompareStart();
+        }}
+        onPointerUp={onCompareEnd}
+        onPointerLeave={onCompareEnd}
+      >
+        <Eye size={16} />
       </ToolBtn>
 
       <div className="ml-auto flex items-center gap-2">
