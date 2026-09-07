@@ -24,7 +24,8 @@ export function applyAdjustments(
     adj.temperature === 0 &&
     adj.tint === 0 &&
     adj.highlights === 0 &&
-    adj.shadows === 0
+    adj.shadows === 0 &&
+    adj.vignette === 0
   ) {
     return;
   }
@@ -38,8 +39,13 @@ export function applyAdjustments(
   const tint = adj.tint / 100;
   const highlights = adj.highlights / 100;
   const shadows = adj.shadows / 100;
+  const vignette = Math.max(0, Math.min(1, adj.vignette / 100));
   const contrastFactor = (1 + contrast) / (1.0001 - contrast);
   const exposureMul = Math.pow(2, exposure);
+  const cx = width / 2;
+  const cy = height / 2;
+  // Normalize radius so corners reach ~1
+  const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
 
   for (let i = 0; i < d.length; i += 4) {
     let r = d[i] * exposureMul;
@@ -91,6 +97,20 @@ export function applyAdjustments(
     r = gray + (r - gray) * (1 + saturation);
     g = gray + (g - gray) * (1 + saturation);
     b = gray + (b - gray) * (1 + saturation);
+
+    if (vignette > 0) {
+      const px = (i / 4) % width;
+      const py = Math.floor(i / 4 / width);
+      const dx = px - cx;
+      const dy = py - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) / maxDist;
+      // Soft radial falloff; strength scales with slider
+      const falloff = Math.pow(dist, 1.65);
+      const factor = 1 - falloff * vignette * 0.85;
+      r *= factor;
+      g *= factor;
+      b *= factor;
+    }
 
     d[i] = clamp(r);
     d[i + 1] = clamp(g);
