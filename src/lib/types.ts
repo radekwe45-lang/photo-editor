@@ -143,3 +143,21 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
     },
   },
 ];
+
+export type CropAspectId = "free" | "1:1" | "4:3" | "3:2" | "16:9" | "9:16";
+
+export interface CropAspectPreset {
+  id: CropAspectId;
+  label: string;
+  /** width / height; null = freeform */
+  ratio: number | null;
+}
+
+export const CROP_ASPECT_PRESETS: CropAspectPreset[] = [
+  { id: "free", label: "Free", ratio: null },
+  { id: "1:1", label: "1:1", ratio: 1 },
+  { id: "4:3", label: "4:3", ratio: 4 / 3 },
+  { id: "3:2", label: "3:2", ratio: 3 / 2 },
+  { id: "16:9", label: "16:9", ratio: 16 / 9 },
+  { id: "9:16", label: "9:16", ratio: 9 / 16 },
+];
