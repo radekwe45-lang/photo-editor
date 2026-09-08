@@ -1,7 +1,7 @@
 "use client";
 
 import type { Adjustments } from "@/lib/types";
-import { DEFAULT_ADJUSTMENTS } from "@/lib/types";
+import { ADJUSTMENT_PRESETS, DEFAULT_ADJUSTMENTS } from "@/lib/types";
 
 interface Props {
   value: Adjustments;
@@ -13,12 +13,16 @@ interface Props {
 function SliderRow({
   label,
   value,
+  min = -100,
+  max = 100,
   onChange,
   onCommit,
   disabled,
 }: {
   label: string;
   value: number;
+  min?: number;
+  max?: number;
   onChange: (v: number) => void;
   onCommit: () => void;
   disabled?: boolean;
@@ -31,8 +35,8 @@ function SliderRow({
       </div>
       <input
         type="range"
-        min={-100}
-        max={100}
+        min={min}
+        max={max}
         value={value}
         disabled={disabled}
         className="slider"
@@ -42,6 +46,19 @@ function SliderRow({
         onKeyUp={onCommit}
       />
     </label>
+  );
+}
+
+function presetActive(value: Adjustments, preset: Adjustments): boolean {
+  return (
+    value.exposure === preset.exposure &&
+    value.contrast === preset.contrast &&
+    value.saturation === preset.saturation &&
+    value.temperature === preset.temperature &&
+    value.tint === preset.tint &&
+    value.highlights === preset.highlights &&
+    value.shadows === preset.shadows &&
+    value.vignette === preset.vignette
   );
 }
 
@@ -65,6 +82,37 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
           Reset
         </button>
       </div>
+
+      <div className="space-y-2">
+        <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+          Presets
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {ADJUSTMENT_PRESETS.map((preset) => {
+            const active = presetActive(value, preset.adjustments);
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                disabled={disabled}
+                aria-pressed={active}
+                className={
+                  active
+                    ? "rounded-full bg-accent/20 px-2.5 py-1 text-[11px] text-accent ring-1 ring-accent/40"
+                    : "rounded-full bg-chrome-800 px-2.5 py-1 text-[11px] text-chrome-300 ring-1 ring-chrome-700 hover:text-chrome-100"
+                }
+                onClick={() => {
+                  onChange({ ...preset.adjustments });
+                  setTimeout(onCommit, 0);
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <SliderRow
         label="Exposure"
         value={value.exposure}
@@ -112,6 +160,15 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
         value={value.shadows}
         disabled={disabled}
         onChange={(shadows) => onChange({ ...value, shadows })}
+        onCommit={onCommit}
+      />
+      <SliderRow
+        label="Vignette"
+        value={value.vignette}
+        min={0}
+        max={100}
+        disabled={disabled}
+        onChange={(vignette) => onChange({ ...value, vignette })}
         onCommit={onCommit}
       />
     </section>

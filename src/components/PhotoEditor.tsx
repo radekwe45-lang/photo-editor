@@ -37,7 +37,8 @@ function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
     a.temperature === b.temperature &&
     a.tint === b.tint &&
     a.highlights === b.highlights &&
-    a.shadows === b.shadows
+    a.shadows === b.shadows &&
+    a.vignette === b.vignette
   );
 }
 
