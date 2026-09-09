@@ -41,7 +41,10 @@ function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
     a.tint === b.tint &&
     a.highlights === b.highlights &&
     a.shadows === b.shadows &&
-    a.vignette === b.vignette
+    a.vignette === b.vignette &&
+    a.sharpen === b.sharpen &&
+    a.clarity === b.clarity &&
+    a.dehaze === b.dehaze
   );
 }
 

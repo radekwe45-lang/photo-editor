@@ -58,7 +58,10 @@ function presetActive(value: Adjustments, preset: Adjustments): boolean {
     value.tint === preset.tint &&
     value.highlights === preset.highlights &&
     value.shadows === preset.shadows &&
-    value.vignette === preset.vignette
+    value.vignette === preset.vignette &&
+    value.sharpen === preset.sharpen &&
+    value.clarity === preset.clarity &&
+    value.dehaze === preset.dehaze
   );
 }
 
@@ -169,6 +172,34 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
         max={100}
         disabled={disabled}
         onChange={(vignette) => onChange({ ...value, vignette })}
+        onCommit={onCommit}
+      />
+      <div className="pt-1 text-[11px] uppercase tracking-wider text-chrome-500">
+        Detail
+      </div>
+      <SliderRow
+        label="Sharpen"
+        value={value.sharpen}
+        min={0}
+        max={100}
+        disabled={disabled}
+        onChange={(sharpen) => onChange({ ...value, sharpen })}
+        onCommit={onCommit}
+      />
+      <SliderRow
+        label="Clarity"
+        value={value.clarity}
+        disabled={disabled}
+        onChange={(clarity) => onChange({ ...value, clarity })}
+        onCommit={onCommit}
+      />
+      <SliderRow
+        label="Dehaze"
+        value={value.dehaze}
+        min={0}
+        max={100}
+        disabled={disabled}
+        onChange={(dehaze) => onChange({ ...value, dehaze })}
         onCommit={onCommit}
       />
     </section>
