@@ -25,7 +25,10 @@ export function applyAdjustments(
     adj.tint === 0 &&
     adj.highlights === 0 &&
     adj.shadows === 0 &&
-    adj.vignette === 0
+    adj.vignette === 0 &&
+    adj.sharpen === 0 &&
+    adj.clarity === 0 &&
+    adj.dehaze === 0
   ) {
     return;
   }
@@ -40,6 +43,9 @@ export function applyAdjustments(
   const highlights = adj.highlights / 100;
   const shadows = adj.shadows / 100;
   const vignette = Math.max(0, Math.min(1, adj.vignette / 100));
+  const sharpen = Math.max(0, Math.min(1, adj.sharpen / 100));
+  const clarity = Math.max(-1, Math.min(1, adj.clarity / 100));
+  const dehaze = Math.max(0, Math.min(1, adj.dehaze / 100));
   const contrastFactor = (1 + contrast) / (1.0001 - contrast);
   const exposureMul = Math.pow(2, exposure);
   const cx = width / 2;
@@ -93,6 +99,22 @@ export function applyAdjustments(
       b += tintAmt * 0.5;
     }
 
+    // Dehaze: dark-channel-ish crush + midtone contrast / sat
+    if (dehaze > 0) {
+      const minC = Math.min(r, g, b) / 255;
+      const haze = Math.max(0, Math.min(1, minC));
+      const crush = dehaze * haze * 42;
+      const gain = 1 + dehaze * 0.22;
+      r = (r - crush) * gain;
+      g = (g - crush) * gain;
+      b = (b - crush) * gain;
+      const grayDh = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const satBoost = 1 + dehaze * 0.18;
+      r = grayDh + (r - grayDh) * satBoost;
+      g = grayDh + (g - grayDh) * satBoost;
+      b = grayDh + (b - grayDh) * satBoost;
+    }
+
     const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     r = gray + (r - gray) * (1 + saturation);
     g = gray + (g - gray) * (1 + saturation);
@@ -117,7 +139,125 @@ export function applyAdjustments(
     d[i + 2] = clamp(b);
   }
 
+  if (sharpen > 0 || clarity !== 0) {
+    applyDetailPass(d, width, height, sharpen, clarity);
+  }
+
   ctx.putImageData(imageData, 0, 0);
+}
+
+/** Separable box blur on a float buffer (src -> dst). */
+function boxBlurPass(
+  src: Float32Array,
+  dst: Float32Array,
+  width: number,
+  height: number,
+  radius: number,
+  horizontal: boolean
+): void {
+  const r = Math.max(1, radius | 0);
+  const extent = r * 2 + 1;
+  if (horizontal) {
+    for (let y = 0; y < height; y++) {
+      const row = y * width;
+      let sum = 0;
+      for (let x = -r; x <= r; x++) {
+        const xx = Math.min(width - 1, Math.max(0, x));
+        sum += src[row + xx];
+      }
+      for (let x = 0; x < width; x++) {
+        dst[row + x] = sum / extent;
+        const leave = Math.min(width - 1, Math.max(0, x - r));
+        const enter = Math.min(width - 1, Math.max(0, x + r + 1));
+        sum += src[row + enter] - src[row + leave];
+      }
+    }
+  } else {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let y = -r; y <= r; y++) {
+        const yy = Math.min(height - 1, Math.max(0, y));
+        sum += src[yy * width + x];
+      }
+      for (let y = 0; y < height; y++) {
+        dst[y * width + x] = sum / extent;
+        const leave = Math.min(height - 1, Math.max(0, y - r));
+        const enter = Math.min(height - 1, Math.max(0, y + r + 1));
+        sum += src[enter * width + x] - src[leave * width + x];
+      }
+    }
+  }
+}
+
+function blurLuma(
+  luma: Float32Array,
+  width: number,
+  height: number,
+  radius: number
+): Float32Array {
+  const tmp = new Float32Array(luma.length);
+  const out = new Float32Array(luma.length);
+  boxBlurPass(luma, tmp, width, height, radius, true);
+  boxBlurPass(tmp, out, width, height, radius, false);
+  return out;
+}
+
+/**
+ * Sharpen (unsharp mask) + Clarity (midtone local contrast) using a blurred luma map.
+ */
+function applyDetailPass(
+  d: Uint8ClampedArray,
+  width: number,
+  height: number,
+  sharpen: number,
+  clarity: number
+): void {
+  const n = width * height;
+  const luma = new Float32Array(n);
+  for (let p = 0, i = 0; p < n; p++, i += 4) {
+    luma[p] = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+  }
+
+  const minSide = Math.min(width, height);
+  const sharpRadius = Math.max(1, Math.round(minSide / 400));
+  const clarityRadius = Math.max(2, Math.round(minSide / 120));
+
+  const sharpBlur =
+    sharpen > 0 ? blurLuma(luma, width, height, sharpRadius) : null;
+  const clarityBlur =
+    clarity !== 0 ? blurLuma(luma, width, height, clarityRadius) : null;
+
+  const sharpAmt = sharpen * 1.35;
+  const clarityAmt = clarity * 1.1;
+
+  for (let p = 0, i = 0; p < n; p++, i += 4) {
+    let r = d[i];
+    let g = d[i + 1];
+    let b = d[i + 2];
+    const L = luma[p];
+
+    if (sharpBlur) {
+      const delta = (L - sharpBlur[p]) * sharpAmt;
+      r += delta;
+      g += delta;
+      b += delta;
+    }
+
+    if (clarityBlur) {
+      // Midtone mask peaks near 0.5 luma
+      const t = L / 255;
+      const mid = 1 - Math.abs(t - 0.5) * 2;
+      const midMask = mid * mid;
+      const delta = (L - clarityBlur[p]) * clarityAmt * midMask;
+      r += delta;
+      g += delta;
+      b += delta;
+    }
+
+    d[i] = clamp(r);
+    d[i + 1] = clamp(g);
+    d[i + 2] = clamp(b);
+  }
 }
 
 function clamp(v: number): number {

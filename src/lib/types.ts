@@ -16,6 +16,9 @@ export interface Adjustments {
   highlights: number; // -100..100
   shadows: number; // -100..100
   vignette: number; // 0..100 edge darkening
+  sharpen: number; // 0..100 unsharp mask
+  clarity: number; // -100..100 midtone local contrast
+  dehaze: number; // 0..100 haze cut
 }
 
 export interface EditorSnapshot {
@@ -43,6 +46,9 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   highlights: 0,
   shadows: 0,
   vignette: 0,
+  sharpen: 0,
+  clarity: 0,
+  dehaze: 0,
 };
 
 export interface AdjustmentPreset {
@@ -70,6 +76,9 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       highlights: -18,
       shadows: 22,
       vignette: 18,
+      sharpen: 12,
+      clarity: 8,
+      dehaze: 0,
     },
   },
   {
@@ -84,6 +93,9 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       highlights: -8,
       shadows: 10,
       vignette: 0,
+      sharpen: 18,
+      clarity: 16,
+      dehaze: 8,
     },
   },
   {
@@ -98,6 +110,9 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       highlights: -24,
       shadows: 16,
       vignette: 42,
+      sharpen: 10,
+      clarity: 20,
+      dehaze: 12,
     },
   },
   {
@@ -112,6 +127,9 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       highlights: -10,
       shadows: 12,
       vignette: 28,
+      sharpen: 22,
+      clarity: 14,
+      dehaze: 6,
     },
   },
   {
@@ -126,6 +144,9 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       highlights: -6,
       shadows: 8,
       vignette: 12,
+      sharpen: 8,
+      clarity: 6,
+      dehaze: 10,
     },
   },
   {
@@ -140,6 +161,9 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       highlights: -12,
       shadows: 14,
       vignette: 16,
+      sharpen: 8,
+      clarity: 10,
+      dehaze: 4,
     },
   },
 ];
