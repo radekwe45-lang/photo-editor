@@ -2,6 +2,7 @@
 
 import type { Adjustments } from "@/lib/types";
 import { ADJUSTMENT_PRESETS, DEFAULT_ADJUSTMENTS } from "@/lib/types";
+import { curvesEqual } from "@/lib/curves";
 
 interface Props {
   value: Adjustments;
@@ -61,7 +62,8 @@ function presetActive(value: Adjustments, preset: Adjustments): boolean {
     value.vignette === preset.vignette &&
     value.sharpen === preset.sharpen &&
     value.clarity === preset.clarity &&
-    value.dehaze === preset.dehaze
+    value.dehaze === preset.dehaze &&
+    curvesEqual(value.curves, preset.curves)
   );
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Toolbar } from "./Toolbar";
 import { EditorCanvas } from "./EditorCanvas";
 import { AdjustmentsPanel } from "./AdjustmentsPanel";
+import { CurvesHistogram } from "./CurvesHistogram";
 import { GeometryPanel } from "./GeometryPanel";
 import { GenerativePanel } from "./GenerativePanel";
 import { ExportModal } from "./ExportModal";
@@ -25,6 +26,7 @@ import {
   type ExportFormat,
   type Tool,
 } from "@/lib/types";
+import { curvesEqual } from "@/lib/curves";
 
 interface Snapshot {
   imageSrc: string;
@@ -44,7 +46,8 @@ function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
     a.vignette === b.vignette &&
     a.sharpen === b.sharpen &&
     a.clarity === b.clarity &&
-    a.dehaze === b.dehaze
+    a.dehaze === b.dehaze &&
+    curvesEqual(a.curves, b.curves)
   );
 }
 
@@ -371,6 +374,13 @@ export function PhotoEditor() {
             value={liveAdj}
             onChange={setLiveAdj}
             onCommit={onAdjCommit}
+            disabled={!hasImage}
+          />
+          <CurvesHistogram
+            value={liveAdj}
+            onChange={setLiveAdj}
+            onCommit={onAdjCommit}
+            imageSrc={snap?.imageSrc ?? null}
             disabled={!hasImage}
           />
           <GeometryPanel

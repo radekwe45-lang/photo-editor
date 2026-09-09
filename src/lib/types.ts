@@ -7,6 +7,22 @@ export type Tool =
 
 export type ExportFormat = "png" | "jpeg" | "webp";
 
+export interface CurvePoint {
+  /** Input tone 0..1 */
+  x: number;
+  /** Output tone 0..1 */
+  y: number;
+}
+
+export type CurveChannel = "master" | "r" | "g" | "b";
+
+export interface ToneCurves {
+  master: CurvePoint[];
+  r: CurvePoint[];
+  g: CurvePoint[];
+  b: CurvePoint[];
+}
+
 export interface Adjustments {
   exposure: number; // -100..100
   contrast: number; // -100..100
@@ -19,6 +35,7 @@ export interface Adjustments {
   sharpen: number; // 0..100 unsharp mask
   clarity: number; // -100..100 midtone local contrast
   dehaze: number; // 0..100 haze cut
+  curves: ToneCurves;
 }
 
 export interface EditorSnapshot {
@@ -37,6 +54,18 @@ export interface CropRect {
   h: number;
 }
 
+const IDENTITY_CURVE_POINTS: CurvePoint[] = [
+  { x: 0, y: 0 },
+  { x: 1, y: 1 },
+];
+
+export const DEFAULT_TONE_CURVES: ToneCurves = {
+  master: [...IDENTITY_CURVE_POINTS],
+  r: [...IDENTITY_CURVE_POINTS],
+  g: [...IDENTITY_CURVE_POINTS],
+  b: [...IDENTITY_CURVE_POINTS],
+};
+
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
   exposure: 0,
   contrast: 0,
@@ -49,6 +78,12 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   sharpen: 0,
   clarity: 0,
   dehaze: 0,
+  curves: {
+    master: [...IDENTITY_CURVE_POINTS],
+    r: [...IDENTITY_CURVE_POINTS],
+    g: [...IDENTITY_CURVE_POINTS],
+    b: [...IDENTITY_CURVE_POINTS],
+  },
 };
 
 export interface AdjustmentPreset {
@@ -79,6 +114,12 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 12,
       clarity: 8,
       dehaze: 0,
+      curves: {
+        master: [...IDENTITY_CURVE_POINTS],
+        r: [...IDENTITY_CURVE_POINTS],
+        g: [...IDENTITY_CURVE_POINTS],
+        b: [...IDENTITY_CURVE_POINTS],
+      },
     },
   },
   {
@@ -96,6 +137,12 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 18,
       clarity: 16,
       dehaze: 8,
+      curves: {
+        master: [...IDENTITY_CURVE_POINTS],
+        r: [...IDENTITY_CURVE_POINTS],
+        g: [...IDENTITY_CURVE_POINTS],
+        b: [...IDENTITY_CURVE_POINTS],
+      },
     },
   },
   {
@@ -113,6 +160,12 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 10,
       clarity: 20,
       dehaze: 12,
+      curves: {
+        master: [...IDENTITY_CURVE_POINTS],
+        r: [...IDENTITY_CURVE_POINTS],
+        g: [...IDENTITY_CURVE_POINTS],
+        b: [...IDENTITY_CURVE_POINTS],
+      },
     },
   },
   {
@@ -130,6 +183,12 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 22,
       clarity: 14,
       dehaze: 6,
+      curves: {
+        master: [...IDENTITY_CURVE_POINTS],
+        r: [...IDENTITY_CURVE_POINTS],
+        g: [...IDENTITY_CURVE_POINTS],
+        b: [...IDENTITY_CURVE_POINTS],
+      },
     },
   },
   {
@@ -147,6 +206,12 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 8,
       clarity: 6,
       dehaze: 10,
+      curves: {
+        master: [...IDENTITY_CURVE_POINTS],
+        r: [...IDENTITY_CURVE_POINTS],
+        g: [...IDENTITY_CURVE_POINTS],
+        b: [...IDENTITY_CURVE_POINTS],
+      },
     },
   },
   {
@@ -164,6 +229,12 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 8,
       clarity: 10,
       dehaze: 4,
+      curves: {
+        master: [...IDENTITY_CURVE_POINTS],
+        r: [...IDENTITY_CURVE_POINTS],
+        g: [...IDENTITY_CURVE_POINTS],
+        b: [...IDENTITY_CURVE_POINTS],
+      },
     },
   },
 ];
