@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Toolbar } from "./Toolbar";
 import { EditorCanvas } from "./EditorCanvas";
 import { AdjustmentsPanel } from "./AdjustmentsPanel";
+import { GeometryPanel } from "./GeometryPanel";
 import { GenerativePanel } from "./GenerativePanel";
 import { ExportModal } from "./ExportModal";
 import { useHistory } from "@/hooks/useHistory";
@@ -16,8 +17,10 @@ import {
   rotateCanvas,
 } from "@/lib/canvas";
 import {
+  CROP_ASPECT_PRESETS,
   DEFAULT_ADJUSTMENTS,
   type Adjustments,
+  type CropAspectId,
   type CropRect,
   type ExportFormat,
   type Tool,
@@ -53,6 +56,11 @@ export function PhotoEditor() {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [dragOver, setDragOver] = useState(false);
   const [comparing, setComparing] = useState(false);
+  const [cropAspectId, setCropAspectId] = useState<CropAspectId>("free");
+  const [straighten, setStraighten] = useState(0);
+
+  const cropAspect =
+    CROP_ASPECT_PRESETS.find((p) => p.id === cropAspectId)?.ratio ?? null;
 
   const snap = history.present;
   const hasImage = !!snap?.imageSrc;
@@ -85,6 +93,8 @@ export function PhotoEditor() {
       setPanOffset({ x: 0, y: 0 });
       setTool("select");
       setComparing(false);
+      setStraighten(0);
+      setCropAspectId("free");
     };
     reader.readAsDataURL(file);
   }
@@ -121,6 +131,13 @@ export function PhotoEditor() {
 
   async function onRotate(deg: number) {
     await applyGeometry((c) => rotateCanvas(c, deg));
+  }
+
+  async function onApplyStraighten() {
+    if (!snap || straighten === 0) return;
+    const angle = straighten;
+    setStraighten(0);
+    await applyGeometry((c) => rotateCanvas(c, angle));
   }
 
   async function onFlipH() {
@@ -353,6 +370,15 @@ export function PhotoEditor() {
             onCommit={onAdjCommit}
             disabled={!hasImage}
           />
+          <GeometryPanel
+            cropAspectId={cropAspectId}
+            onCropAspectId={setCropAspectId}
+            straighten={straighten}
+            onStraighten={setStraighten}
+            onApplyStraighten={() => void onApplyStraighten()}
+            cropToolActive={tool === "crop"}
+            disabled={!hasImage}
+          />
           <div className="border-t border-white/5 pt-4">
             <label className="mb-3 block space-y-1.5">
               <div className="flex items-center justify-between text-xs">
@@ -404,6 +430,7 @@ export function PhotoEditor() {
             tool={tool}
             zoom={zoom}
             brushSize={brushSize}
+            cropAspect={cropAspect}
             onMaskChange={onMaskChange}
             onCropApply={onCropApply}
             panOffset={panOffset}

@@ -17,10 +17,64 @@ interface Props {
   tool: Tool;
   zoom: number;
   brushSize: number;
+  /** width/height; null = freeform crop */
+  cropAspect: number | null;
   onMaskChange: (dataUrl: string | null) => void;
   onCropApply: (rect: CropRect) => void;
   panOffset: { x: number; y: number };
   onPanOffset: (o: { x: number; y: number }) => void;
+}
+
+function constrainCropRect(
+  start: { x: number; y: number },
+  pt: { x: number; y: number },
+  aspect: number | null,
+  bounds: { w: number; h: number }
+): CropRect {
+  let dx = pt.x - start.x;
+  let dy = pt.y - start.y;
+  if (aspect && aspect > 0) {
+    const signX = dx < 0 ? -1 : 1;
+    const signY = dy < 0 ? -1 : 1;
+    const absW = Math.abs(dx);
+    const absH = Math.abs(dy) || 1e-6;
+    if (absW / absH > aspect) {
+      dx = signX * absH * aspect;
+    } else {
+      dy = signY * (absW / aspect);
+    }
+  }
+  let x = Math.min(start.x, start.x + dx);
+  let y = Math.min(start.y, start.y + dy);
+  let w = Math.abs(dx);
+  let h = Math.abs(dy);
+  // Clamp into image bounds
+  if (x < 0) {
+    w += x;
+    x = 0;
+  }
+  if (y < 0) {
+    h += y;
+    y = 0;
+  }
+  if (x + w > bounds.w) w = bounds.w - x;
+  if (y + h > bounds.h) h = bounds.h - y;
+  if (aspect && aspect > 0 && w > 0 && h > 0) {
+    const cur = w / h;
+    if (Math.abs(cur - aspect) > 0.001) {
+      if (cur > aspect) w = h * aspect;
+      else h = w / aspect;
+      if (x + w > bounds.w) {
+        w = bounds.w - x;
+        h = w / aspect;
+      }
+      if (y + h > bounds.h) {
+        h = bounds.h - y;
+        w = h * aspect;
+      }
+    }
+  }
+  return { x, y, w: Math.max(0, w), h: Math.max(0, h) };
 }
 
 export function EditorCanvas({
@@ -30,6 +84,7 @@ export function EditorCanvas({
   tool,
   zoom,
   brushSize,
+  cropAspect,
   onMaskChange,
   onCropApply,
   panOffset,
@@ -176,11 +231,12 @@ export function EditorCanvas({
     }
     if (tool === "crop" && cropStart.current) {
       const pt = canvasPoint(e);
-      const x = Math.min(cropStart.current.x, pt.x);
-      const y = Math.min(cropStart.current.y, pt.y);
-      const w = Math.abs(pt.x - cropStart.current.x);
-      const h = Math.abs(pt.y - cropStart.current.y);
-      setCropRect({ x, y, w, h });
+      const canvas = displayRef.current;
+      const bounds = {
+        w: canvas?.width ?? natural.w,
+        h: canvas?.height ?? natural.h,
+      };
+      setCropRect(constrainCropRect(cropStart.current, pt, cropAspect, bounds));
     }
   }
 

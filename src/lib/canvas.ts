@@ -142,11 +142,15 @@ export function rotateCanvas(
   source: HTMLCanvasElement,
   degrees: number
 ): HTMLCanvasElement {
-  const rad = ((degrees % 360) * Math.PI) / 180;
-  const swap = Math.abs(degrees % 180) === 90;
+  // Normalize to (-180, 180] for stable bounding-box math
+  let deg = ((degrees % 360) + 360) % 360;
+  if (deg > 180) deg -= 360;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
   const out = document.createElement("canvas");
-  out.width = swap ? source.height : source.width;
-  out.height = swap ? source.width : source.height;
+  out.width = Math.max(1, Math.ceil(source.width * cos + source.height * sin));
+  out.height = Math.max(1, Math.ceil(source.width * sin + source.height * cos));
   const ctx = out.getContext("2d")!;
   ctx.translate(out.width / 2, out.height / 2);
   ctx.rotate(rad);
