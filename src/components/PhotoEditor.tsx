@@ -34,6 +34,31 @@ interface Snapshot {
   adjustments: Adjustments;
 }
 
+function hslEqual(a: Adjustments["hsl"], b: Adjustments["hsl"]): boolean {
+  const keys: (keyof Adjustments["hsl"])[] = [
+    "reds",
+    "oranges",
+    "yellows",
+    "greens",
+    "aquas",
+    "blues",
+    "purples",
+    "magentas",
+  ];
+  for (const key of keys) {
+    const x = a[key];
+    const y = b[key];
+    if (
+      x.hue !== y.hue ||
+      x.saturation !== y.saturation ||
+      x.luminance !== y.luminance
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
   return (
     a.exposure === b.exposure &&
@@ -47,6 +72,9 @@ function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
     a.sharpen === b.sharpen &&
     a.clarity === b.clarity &&
     a.dehaze === b.dehaze &&
+    a.noise.luminance === b.noise.luminance &&
+    a.noise.color === b.noise.color &&
+    hslEqual(a.hsl, b.hsl) &&
     curvesEqual(a.curves, b.curves)
   );
 }
