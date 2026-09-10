@@ -65,7 +65,7 @@ Aperture does **not** ship model weights. You operate the backend. No CSAM featu
 
 - Upload / drag-and-drop images
 - Crop with aspect presets (Free, 1:1, 4:3, 3:2, 16:9, 9:16), rotate +/-90 deg, straighten (−45°…+45°), flip H/V
-- Exposure / contrast / saturation / temperature / tint / highlights / shadows / vignette / sharpen / clarity / dehaze (client canvas)
+- Exposure / contrast / saturation / temperature / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / master+RGB tone curves with live histogram (client canvas)
 - One-click presets: Neutral, Portrait, Vibrant, Cinematic, B&W, Cool, Warm
 - Hold `\` or the eye toolbar button for before/after compare (live adjustments off while held)
 - Brush / eraser mask overlay for inpaint
@@ -130,7 +130,7 @@ Aperture **nie** zawiera wag modeli. Ty kontrolujesz backend. Brak funkcji CSAM 
 
 - Otwieranie / przeciaganie zdjec
 - Kadrowanie z proporcjami (Free, 1:1, 4:3, 3:2, 16:9, 9:16), obrot +/-90°, straighten (−45°…+45°), odbicie
-- Ekspozycja / kontrast / nasycenie / temperatura / tint / highlights / shadows / vignette / sharpen / clarity / dehaze
+- Ekspozycja / kontrast / nasycenie / temperatura / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / krzywe tonalne master+RGB z histogramem na zywo
 - Presety jednym kliknieciem: Neutral, Portrait, Vibrant, Cinematic, B&W, Cool, Warm
 - Porownanie przed/po: przytrzymaj `\` lub ikone oka na pasku
 - Maska pedzlem, cofnij/ponow, zoom

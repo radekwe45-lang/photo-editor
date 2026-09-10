@@ -1,4 +1,13 @@
 import type { Adjustments } from "./types";
+import {
+  buildCurveLuts,
+  computeHistogram,
+  isIdentityCurves,
+  type HistogramData,
+} from "./curves";
+
+export type { HistogramData };
+export { computeHistogram };
 
 /** Load an image from a data URL or blob URL. */
 export function loadImage(src: string): Promise<HTMLImageElement> {
@@ -17,6 +26,8 @@ export function applyAdjustments(
   height: number,
   adj: Adjustments
 ): void {
+  const curves = adj.curves;
+  const skipCurves = !curves || isIdentityCurves(curves);
   if (
     adj.exposure === 0 &&
     adj.contrast === 0 &&
@@ -28,7 +39,8 @@ export function applyAdjustments(
     adj.vignette === 0 &&
     adj.sharpen === 0 &&
     adj.clarity === 0 &&
-    adj.dehaze === 0
+    adj.dehaze === 0 &&
+    skipCurves
   ) {
     return;
   }
@@ -46,6 +58,7 @@ export function applyAdjustments(
   const sharpen = Math.max(0, Math.min(1, adj.sharpen / 100));
   const clarity = Math.max(-1, Math.min(1, adj.clarity / 100));
   const dehaze = Math.max(0, Math.min(1, adj.dehaze / 100));
+  const curveLuts = skipCurves ? null : buildCurveLuts(curves);
   const contrastFactor = (1 + contrast) / (1.0001 - contrast);
   const exposureMul = Math.pow(2, exposure);
   const cx = width / 2;
@@ -119,6 +132,18 @@ export function applyAdjustments(
     r = gray + (r - gray) * (1 + saturation);
     g = gray + (g - gray) * (1 + saturation);
     b = gray + (b - gray) * (1 + saturation);
+
+    if (curveLuts) {
+      let ri = clamp(r);
+      let gi = clamp(g);
+      let bi = clamp(b);
+      ri = curveLuts.r[ri];
+      gi = curveLuts.g[gi];
+      bi = curveLuts.b[bi];
+      r = curveLuts.master[ri];
+      g = curveLuts.master[gi];
+      b = curveLuts.master[bi];
+    }
 
     if (vignette > 0) {
       const px = (i / 4) % width;
@@ -258,6 +283,22 @@ function applyDetailPass(
     d[i + 1] = clamp(g);
     d[i + 2] = clamp(b);
   }
+}
+
+
+/** Render adjustments onto a temp copy and return RGB/luma histograms. */
+export function histogramFromImageData(
+  source: ImageData,
+  adj: Adjustments
+): HistogramData {
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const ctx = canvas.getContext("2d")!;
+  ctx.putImageData(source, 0, 0);
+  applyAdjustments(ctx, canvas.width, canvas.height, adj);
+  const out = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return computeHistogram(out.data, canvas.width, canvas.height);
 }
 
 function clamp(v: number): number {
