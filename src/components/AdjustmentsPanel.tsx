@@ -1,7 +1,14 @@
 "use client";
 
-import type { Adjustments } from "@/lib/types";
-import { ADJUSTMENT_PRESETS, DEFAULT_ADJUSTMENTS } from "@/lib/types";
+import { useState } from "react";
+import type { Adjustments, HslColorRange, HslRangeAdjust } from "@/lib/types";
+import {
+  ADJUSTMENT_PRESETS,
+  DEFAULT_ADJUSTMENTS,
+  HSL_COLOR_RANGES,
+  HSL_RANGE_LABELS,
+  createDefaultSelectiveHsl,
+} from "@/lib/types";
 import { curvesEqual } from "@/lib/curves";
 
 interface Props {
@@ -50,6 +57,31 @@ function SliderRow({
   );
 }
 
+function hslEqual(
+  a: Adjustments["hsl"],
+  b: Adjustments["hsl"]
+): boolean {
+  for (const key of HSL_COLOR_RANGES) {
+    const x = a[key];
+    const y = b[key];
+    if (
+      x.hue !== y.hue ||
+      x.saturation !== y.saturation ||
+      x.luminance !== y.luminance
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function noiseEqual(
+  a: Adjustments["noise"],
+  b: Adjustments["noise"]
+): boolean {
+  return a.luminance === b.luminance && a.color === b.color;
+}
+
 function presetActive(value: Adjustments, preset: Adjustments): boolean {
   return (
     value.exposure === preset.exposure &&
@@ -63,11 +95,37 @@ function presetActive(value: Adjustments, preset: Adjustments): boolean {
     value.sharpen === preset.sharpen &&
     value.clarity === preset.clarity &&
     value.dehaze === preset.dehaze &&
+    hslEqual(value.hsl, preset.hsl) &&
+    noiseEqual(value.noise, preset.noise) &&
     curvesEqual(value.curves, preset.curves)
   );
 }
 
+const HSL_SWATCH: Record<HslColorRange, string> = {
+  reds: "bg-red-500",
+  oranges: "bg-orange-500",
+  yellows: "bg-yellow-400",
+  greens: "bg-green-500",
+  aquas: "bg-cyan-400",
+  blues: "bg-blue-500",
+  purples: "bg-purple-500",
+  magentas: "bg-pink-500",
+};
+
 export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props) {
+  const [hslRange, setHslRange] = useState<HslColorRange>("reds");
+  const rangeAdj: HslRangeAdjust = value.hsl[hslRange];
+
+  function patchHsl(partial: Partial<HslRangeAdjust>) {
+    onChange({
+      ...value,
+      hsl: {
+        ...value.hsl,
+        [hslRange]: { ...value.hsl[hslRange], ...partial },
+      },
+    });
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -107,7 +165,11 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
                     : "rounded-full bg-chrome-800 px-2.5 py-1 text-[11px] text-chrome-300 ring-1 ring-chrome-700 hover:text-chrome-100"
                 }
                 onClick={() => {
-                  onChange({ ...preset.adjustments });
+                  onChange({
+                    ...preset.adjustments,
+                    hsl: createDefaultSelectiveHsl(),
+                    noise: { ...preset.adjustments.noise },
+                  });
                   setTimeout(onCommit, 0);
                 }}
               >
@@ -204,6 +266,105 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
         onChange={(dehaze) => onChange({ ...value, dehaze })}
         onCommit={onCommit}
       />
+
+      <div className="space-y-3 border-t border-white/5 pt-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+            HSL / Selective color
+          </div>
+          <button
+            type="button"
+            className="text-[11px] text-chrome-500 hover:text-accent"
+            disabled={disabled}
+            onClick={() => {
+              onChange({ ...value, hsl: createDefaultSelectiveHsl() });
+              setTimeout(onCommit, 0);
+            }}
+          >
+            Reset HSL
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {HSL_COLOR_RANGES.map((key) => {
+            const active = hslRange === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={disabled}
+                aria-pressed={active}
+                title={HSL_RANGE_LABELS[key]}
+                className={
+                  active
+                    ? "flex items-center gap-1 rounded-full bg-chrome-700 px-2 py-1 text-[10px] text-chrome-100 ring-1 ring-accent/50"
+                    : "flex items-center gap-1 rounded-full bg-chrome-850 px-2 py-1 text-[10px] text-chrome-400 ring-1 ring-chrome-700 hover:text-chrome-200"
+                }
+                onClick={() => setHslRange(key)}
+              >
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${HSL_SWATCH[key]}`}
+                />
+                {HSL_RANGE_LABELS[key]}
+              </button>
+            );
+          })}
+        </div>
+        <SliderRow
+          label={`${HSL_RANGE_LABELS[hslRange]} Hue`}
+          value={rangeAdj.hue}
+          disabled={disabled}
+          onChange={(hue) => patchHsl({ hue })}
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label={`${HSL_RANGE_LABELS[hslRange]} Saturation`}
+          value={rangeAdj.saturation}
+          disabled={disabled}
+          onChange={(saturation) => patchHsl({ saturation })}
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label={`${HSL_RANGE_LABELS[hslRange]} Luminance`}
+          value={rangeAdj.luminance}
+          disabled={disabled}
+          onChange={(luminance) => patchHsl({ luminance })}
+          onCommit={onCommit}
+        />
+      </div>
+
+      <div className="space-y-3 border-t border-white/5 pt-3">
+        <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+          Noise reduction
+        </div>
+        <SliderRow
+          label="Luminance denoise"
+          value={value.noise.luminance}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(luminance) =>
+            onChange({
+              ...value,
+              noise: { ...value.noise, luminance },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Color denoise"
+          value={value.noise.color}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(color) =>
+            onChange({
+              ...value,
+              noise: { ...value.noise, color },
+            })
+          }
+          onCommit={onCommit}
+        />
+      </div>
     </section>
   );
 }

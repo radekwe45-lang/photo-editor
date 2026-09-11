@@ -28,6 +28,10 @@ export function applyAdjustments(
 ): void {
   const curves = adj.curves;
   const skipCurves = !curves || isIdentityCurves(curves);
+  const hsl = adj.hsl;
+  const skipHsl = !hsl || isIdentityHsl(hsl);
+  const noiseLum = Math.max(0, Math.min(100, adj.noise?.luminance ?? 0));
+  const noiseColor = Math.max(0, Math.min(100, adj.noise?.color ?? 0));
   if (
     adj.exposure === 0 &&
     adj.contrast === 0 &&
@@ -40,6 +44,9 @@ export function applyAdjustments(
     adj.sharpen === 0 &&
     adj.clarity === 0 &&
     adj.dehaze === 0 &&
+    skipHsl &&
+    noiseLum === 0 &&
+    noiseColor === 0 &&
     skipCurves
   ) {
     return;
@@ -133,6 +140,13 @@ export function applyAdjustments(
     g = gray + (g - gray) * (1 + saturation);
     b = gray + (b - gray) * (1 + saturation);
 
+    if (!skipHsl) {
+      const adjRgb = applySelectiveHsl(r, g, b, hsl);
+      r = adjRgb[0];
+      g = adjRgb[1];
+      b = adjRgb[2];
+    }
+
     if (curveLuts) {
       let ri = clamp(r);
       let gi = clamp(g);
@@ -162,6 +176,10 @@ export function applyAdjustments(
     d[i] = clamp(r);
     d[i + 1] = clamp(g);
     d[i + 2] = clamp(b);
+  }
+
+  if (noiseLum > 0 || noiseColor > 0) {
+    applyNoiseReduction(d, width, height, noiseLum / 100, noiseColor / 100);
   }
 
   if (sharpen > 0 || clarity !== 0) {
@@ -225,6 +243,184 @@ function blurLuma(
   boxBlurPass(luma, tmp, width, height, radius, true);
   boxBlurPass(tmp, out, width, height, radius, false);
   return out;
+}
+
+
+/** Soft hue-range centers (degrees) and half-widths for selective HSL. */
+const HSL_RANGES: { key: keyof NonNullable<Adjustments["hsl"]>; center: number; half: number }[] = [
+  { key: "reds", center: 0, half: 22 },
+  { key: "oranges", center: 30, half: 18 },
+  { key: "yellows", center: 60, half: 18 },
+  { key: "greens", center: 120, half: 35 },
+  { key: "aquas", center: 180, half: 25 },
+  { key: "blues", center: 225, half: 28 },
+  { key: "purples", center: 280, half: 22 },
+  { key: "magentas", center: 320, half: 22 },
+];
+
+function isIdentityHsl(hsl: Adjustments["hsl"]): boolean {
+  for (const range of HSL_RANGES) {
+    const a = hsl[range.key];
+    if (!a) continue;
+    if (a.hue !== 0 || a.saturation !== 0 || a.luminance !== 0) return false;
+  }
+  return true;
+}
+
+function hueDistance(a: number, b: number): number {
+  let d = Math.abs(a - b) % 360;
+  if (d > 180) d = 360 - d;
+  return d;
+}
+
+/** Soft triangular weight in [0,1] for a hue against a range. */
+function hueWeight(hue: number, center: number, half: number): number {
+  const d = hueDistance(hue, center);
+  if (d >= half) return 0;
+  return 1 - d / half;
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h * 360, s, l];
+}
+
+function hue2rgb(p: number, q: number, t: number): number {
+  if (t < 0) t += 1;
+  if (t > 1) t -= 1;
+  if (t < 1 / 6) return p + (q - p) * 6 * t;
+  if (t < 1 / 2) return q;
+  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+  return p;
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(1, s));
+  l = Math.max(0, Math.min(1, l));
+  if (s === 0) {
+    const v = l * 255;
+    return [v, v, v];
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const hn = h / 360;
+  return [
+    hue2rgb(p, q, hn + 1 / 3) * 255,
+    hue2rgb(p, q, hn) * 255,
+    hue2rgb(p, q, hn - 1 / 3) * 255,
+  ];
+}
+
+function applySelectiveHsl(
+  r: number,
+  g: number,
+  b: number,
+  hslAdj: Adjustments["hsl"]
+): [number, number, number] {
+  const [h0, s0, l0] = rgbToHsl(r, g, b);
+  // Near-gray pixels have unstable hue — skip soft contribution
+  if (s0 < 0.02) return [r, g, b];
+
+  let dh = 0;
+  let ds = 0;
+  let dl = 0;
+  let wSum = 0;
+
+  for (const range of HSL_RANGES) {
+    const a = hslAdj[range.key];
+    if (!a || (a.hue === 0 && a.saturation === 0 && a.luminance === 0)) continue;
+    const w = hueWeight(h0, range.center, range.half);
+    if (w <= 0) continue;
+    wSum += w;
+    dh += w * (a.hue / 100) * 30; // ±30° at full
+    ds += w * (a.saturation / 100);
+    dl += w * (a.luminance / 100);
+  }
+
+  if (wSum <= 0) return [r, g, b];
+  // Normalize overlapping soft masks so stacked ranges don't explode
+  const inv = 1 / Math.max(1, wSum);
+  dh *= inv;
+  ds *= inv;
+  dl *= inv;
+
+  const h1 = h0 + dh;
+  const s1 = Math.max(0, Math.min(1, s0 * (1 + ds)));
+  const l1 = Math.max(0, Math.min(1, l0 + dl * 0.35));
+  return hslToRgb(h1, s1, l1);
+}
+
+/**
+ * MVP noise reduction: blur luma and/or chroma and blend by amount.
+ * Uses small radii so live preview stays responsive.
+ */
+function applyNoiseReduction(
+  d: Uint8ClampedArray,
+  width: number,
+  height: number,
+  lumAmt: number,
+  colorAmt: number
+): void {
+  const n = width * height;
+  const minSide = Math.min(width, height);
+
+  if (lumAmt > 0) {
+    const luma = new Float32Array(n);
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      luma[p] = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    }
+    const radius = Math.max(1, Math.round(1 + lumAmt * Math.max(2, minSide / 280)));
+    const blurred = blurLuma(luma, width, height, radius);
+    const mix = lumAmt * 0.92;
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const L = luma[p];
+      const Lb = blurred[p];
+      const delta = (Lb - L) * mix;
+      d[i] = clamp(d[i] + delta);
+      d[i + 1] = clamp(d[i + 1] + delta);
+      d[i + 2] = clamp(d[i + 2] + delta);
+    }
+  }
+
+  if (colorAmt > 0) {
+    const cr = new Float32Array(n);
+    const cg = new Float32Array(n);
+    const cb = new Float32Array(n);
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const L = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      cr[p] = d[i] - L;
+      cg[p] = d[i + 1] - L;
+      cb[p] = d[i + 2] - L;
+    }
+    // Color NR uses a slightly larger radius than luma
+    const radius = Math.max(1, Math.round(2 + colorAmt * Math.max(3, minSide / 200)));
+    const br = blurLuma(cr, width, height, radius);
+    const bg = blurLuma(cg, width, height, radius);
+    const bb = blurLuma(cb, width, height, radius);
+    const mix = colorAmt * 0.95;
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      const L = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      const nr = L + cr[p] + (br[p] - cr[p]) * mix;
+      const ng = L + cg[p] + (bg[p] - cg[p]) * mix;
+      const nb = L + cb[p] + (bb[p] - cb[p]) * mix;
+      d[i] = clamp(nr);
+      d[i + 1] = clamp(ng);
+      d[i + 2] = clamp(nb);
+    }
+  }
 }
 
 /**

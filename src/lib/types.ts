@@ -23,6 +23,35 @@ export interface ToneCurves {
   b: CurvePoint[];
 }
 
+
+export type HslColorRange =
+  | "reds"
+  | "oranges"
+  | "yellows"
+  | "greens"
+  | "aquas"
+  | "blues"
+  | "purples"
+  | "magentas";
+
+export interface HslRangeAdjust {
+  /** Hue shift −100..100 */
+  hue: number;
+  /** Saturation −100..100 */
+  saturation: number;
+  /** Luminance −100..100 */
+  luminance: number;
+}
+
+export type SelectiveHsl = Record<HslColorRange, HslRangeAdjust>;
+
+export interface NoiseReduction {
+  /** Luminance denoise 0..100 */
+  luminance: number;
+  /** Color denoise 0..100 */
+  color: number;
+}
+
 export interface Adjustments {
   exposure: number; // -100..100
   contrast: number; // -100..100
@@ -35,6 +64,8 @@ export interface Adjustments {
   sharpen: number; // 0..100 unsharp mask
   clarity: number; // -100..100 midtone local contrast
   dehaze: number; // 0..100 haze cut
+  hsl: SelectiveHsl;
+  noise: NoiseReduction;
   curves: ToneCurves;
 }
 
@@ -59,6 +90,53 @@ const IDENTITY_CURVE_POINTS: CurvePoint[] = [
   { x: 1, y: 1 },
 ];
 
+
+const IDENTITY_HSL_RANGE: HslRangeAdjust = {
+  hue: 0,
+  saturation: 0,
+  luminance: 0,
+};
+
+export const HSL_COLOR_RANGES: HslColorRange[] = [
+  "reds",
+  "oranges",
+  "yellows",
+  "greens",
+  "aquas",
+  "blues",
+  "purples",
+  "magentas",
+];
+
+export const HSL_RANGE_LABELS: Record<HslColorRange, string> = {
+  reds: "Reds",
+  oranges: "Oranges",
+  yellows: "Yellows",
+  greens: "Greens",
+  aquas: "Aquas",
+  blues: "Blues",
+  purples: "Purples",
+  magentas: "Magentas",
+};
+
+export function createDefaultSelectiveHsl(): SelectiveHsl {
+  return {
+    reds: { ...IDENTITY_HSL_RANGE },
+    oranges: { ...IDENTITY_HSL_RANGE },
+    yellows: { ...IDENTITY_HSL_RANGE },
+    greens: { ...IDENTITY_HSL_RANGE },
+    aquas: { ...IDENTITY_HSL_RANGE },
+    blues: { ...IDENTITY_HSL_RANGE },
+    purples: { ...IDENTITY_HSL_RANGE },
+    magentas: { ...IDENTITY_HSL_RANGE },
+  };
+}
+
+export const DEFAULT_NOISE: NoiseReduction = {
+  luminance: 0,
+  color: 0,
+};
+
 export const DEFAULT_TONE_CURVES: ToneCurves = {
   master: [...IDENTITY_CURVE_POINTS],
   r: [...IDENTITY_CURVE_POINTS],
@@ -78,6 +156,8 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   sharpen: 0,
   clarity: 0,
   dehaze: 0,
+  hsl: createDefaultSelectiveHsl(),
+  noise: { ...DEFAULT_NOISE },
   curves: {
     master: [...IDENTITY_CURVE_POINTS],
     r: [...IDENTITY_CURVE_POINTS],
@@ -114,6 +194,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 12,
       clarity: 8,
       dehaze: 0,
+      hsl: createDefaultSelectiveHsl(),
+      noise: { ...DEFAULT_NOISE },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -137,6 +219,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 18,
       clarity: 16,
       dehaze: 8,
+      hsl: createDefaultSelectiveHsl(),
+      noise: { ...DEFAULT_NOISE },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -160,6 +244,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 10,
       clarity: 20,
       dehaze: 12,
+      hsl: createDefaultSelectiveHsl(),
+      noise: { ...DEFAULT_NOISE },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -183,6 +269,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 22,
       clarity: 14,
       dehaze: 6,
+      hsl: createDefaultSelectiveHsl(),
+      noise: { ...DEFAULT_NOISE },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -206,6 +294,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 8,
       clarity: 6,
       dehaze: 10,
+      hsl: createDefaultSelectiveHsl(),
+      noise: { ...DEFAULT_NOISE },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -229,6 +319,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       sharpen: 8,
       clarity: 10,
       dehaze: 4,
+      hsl: createDefaultSelectiveHsl(),
+      noise: { ...DEFAULT_NOISE },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
