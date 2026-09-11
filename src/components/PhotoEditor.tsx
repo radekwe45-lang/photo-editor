@@ -59,6 +59,21 @@ function hslEqual(a: Adjustments["hsl"], b: Adjustments["hsl"]): boolean {
   return true;
 }
 
+
+function colorGradingEqual(
+  a: Adjustments["colorGrading"],
+  b: Adjustments["colorGrading"]
+): boolean {
+  return (
+    a.shadows.hue === b.shadows.hue &&
+    a.shadows.saturation === b.shadows.saturation &&
+    a.midtones.hue === b.midtones.hue &&
+    a.midtones.saturation === b.midtones.saturation &&
+    a.highlights.hue === b.highlights.hue &&
+    a.highlights.saturation === b.highlights.saturation
+  );
+}
+
 function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
   return (
     a.exposure === b.exposure &&
@@ -75,6 +90,7 @@ function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
     a.noise.luminance === b.noise.luminance &&
     a.noise.color === b.noise.color &&
     hslEqual(a.hsl, b.hsl) &&
+    colorGradingEqual(a.colorGrading, b.colorGrading) &&
     curvesEqual(a.curves, b.curves)
   );
 }
