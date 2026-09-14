@@ -8,7 +8,12 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Adjustments, CropRect, Tool } from "@/lib/types";
-import { applyAdjustments, loadImage } from "@/lib/canvas";
+import {
+  applyAdjustments,
+  loadImage,
+  softCloneStamp,
+  softHealStamp,
+} from "@/lib/canvas";
 
 interface Props {
   imageSrc: string | null;
@@ -20,6 +25,8 @@ interface Props {
   /** width/height; null = freeform crop */
   cropAspect: number | null;
   onMaskChange: (dataUrl: string | null) => void;
+  /** Commit a heal/clone stroke baked into the base image (no adjustments). */
+  onImagePaint: (dataUrl: string) => void;
   onCropApply: (rect: CropRect) => void;
   panOffset: { x: number; y: number };
   onPanOffset: (o: { x: number; y: number }) => void;
@@ -48,7 +55,6 @@ function constrainCropRect(
   let y = Math.min(start.y, start.y + dy);
   let w = Math.abs(dx);
   let h = Math.abs(dy);
-  // Clamp into image bounds
   if (x < 0) {
     w += x;
     x = 0;
@@ -86,6 +92,7 @@ export function EditorCanvas({
   brushSize,
   cropAspect,
   onMaskChange,
+  onImagePaint,
   onCropApply,
   panOffset,
   onPanOffset,
@@ -93,22 +100,71 @@ export function EditorCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const displayRef = useRef<HTMLCanvasElement>(null);
   const maskRef = useRef<HTMLCanvasElement>(null);
+  /** Base-image paint buffer for heal/clone (no live adjustments). */
+  const paintBufRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const painting = useRef(false);
+  const imagePainting = useRef(false);
   const panning = useRef(false);
   const lastPt = useRef<{ x: number; y: number } | null>(null);
   const cropStart = useRef<{ x: number; y: number } | null>(null);
+  const cloneSource = useRef<{ x: number; y: number } | null>(null);
+  /** Fixed offset = source - first stroke point (classic clone stamp). */
+  const cloneOffset = useRef<{ x: number; y: number } | null>(null);
+  const strokeDirty = useRef(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [natural, setNatural] = useState({ w: 0, h: 0 });
+  const [cloneMarker, setCloneMarker] = useState<{ x: number; y: number } | null>(
+    null
+  );
+
+  const ensurePaintBuffer = useCallback(async () => {
+    if (!imageSrc) return null;
+    let buf = paintBufRef.current;
+    const img = imageRef.current ?? (await loadImage(imageSrc));
+    imageRef.current = img;
+    if (!buf || buf.width !== img.naturalWidth || buf.height !== img.naturalHeight) {
+      buf = document.createElement("canvas");
+      buf.width = img.naturalWidth;
+      buf.height = img.naturalHeight;
+      paintBufRef.current = buf;
+      buf.getContext("2d")!.drawImage(img, 0, 0);
+    }
+    return buf;
+  }, [imageSrc]);
+
+  const refreshDisplayFromBuffer = useCallback(() => {
+    const canvas = displayRef.current;
+    const buf = paintBufRef.current;
+    if (!canvas || !buf) return;
+    const ctx = canvas.getContext("2d")!;
+    if (canvas.width !== buf.width || canvas.height !== buf.height) {
+      canvas.width = buf.width;
+      canvas.height = buf.height;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(buf, 0, 0);
+    applyAdjustments(ctx, canvas.width, canvas.height, adjustments);
+  }, [adjustments]);
 
   const redraw = useCallback(async () => {
     const canvas = displayRef.current;
     if (!canvas || !imageSrc) return;
+    // Skip full reload while an image-paint stroke is in progress
+    if (imagePainting.current) return;
     const img = await loadImage(imageSrc);
     imageRef.current = img;
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+
+    // Sync paint buffer to the committed base image
+    const buf = document.createElement("canvas");
+    buf.width = img.naturalWidth;
+    buf.height = img.naturalHeight;
+    buf.getContext("2d")!.drawImage(img, 0, 0);
+    paintBufRef.current = buf;
+
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
@@ -134,6 +190,15 @@ export function EditorCanvas({
   useEffect(() => {
     void redraw();
   }, [redraw]);
+
+  // Clear clone source when leaving clone tool
+  useEffect(() => {
+    if (tool !== "clone") {
+      cloneSource.current = null;
+      cloneOffset.current = null;
+      setCloneMarker(null);
+    }
+  }, [tool]);
 
   useEffect(() => {
     const maskCanvas = maskRef.current;
@@ -193,6 +258,51 @@ export function EditorCanvas({
     lastPt.current = { x, y };
   }
 
+  function imagePaintDab(x: number, y: number) {
+    const buf = paintBufRef.current;
+    if (!buf) return;
+    const ctx = buf.getContext("2d")!;
+    const radius = brushSize / 2;
+
+    if (tool === "clone") {
+      const src = cloneSource.current;
+      if (!src) return;
+      if (!cloneOffset.current) {
+        // Classic stamp: fix offset at first paint point of this stroke
+        cloneOffset.current = { x: src.x - x, y: src.y - y };
+      }
+      const off = cloneOffset.current;
+      const sx = x + off.x;
+      const sy = y + off.y;
+      softCloneStamp(ctx, buf, x, y, sx, sy, radius, 0.85);
+      setCloneMarker({ x: sx, y: sy });
+    } else if (tool === "heal") {
+      softHealStamp(ctx, buf, x, y, radius, 0.9);
+    }
+    strokeDirty.current = true;
+    refreshDisplayFromBuffer();
+  }
+
+  function imagePaintStrokeTo(x: number, y: number) {
+    const last = lastPt.current;
+    const spacing = Math.max(1, brushSize * 0.2);
+    if (!last) {
+      imagePaintDab(x, y);
+      lastPt.current = { x, y };
+      return;
+    }
+    const dx = x - last.x;
+    const dy = y - last.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < spacing) return;
+    const steps = Math.floor(dist / spacing);
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      imagePaintDab(last.x + dx * t, last.y + dy * t);
+    }
+    lastPt.current = { x, y };
+  }
+
   function onPointerDown(e: ReactPointerEvent) {
     if (!imageSrc) return;
     const target = e.currentTarget as HTMLElement;
@@ -204,12 +314,39 @@ export function EditorCanvas({
       lastPt.current = { x: e.clientX, y: e.clientY };
       return;
     }
+
+    // Clone source pick: Ctrl/Cmd-click (Alt is reserved for temporary pan)
+    if (tool === "clone" && (e.ctrlKey || e.metaKey)) {
+      cloneSource.current = { x: pt.x, y: pt.y };
+      cloneOffset.current = null;
+      setCloneMarker({ x: pt.x, y: pt.y });
+      return;
+    }
+
     if (tool === "brush" || tool === "eraser") {
       painting.current = true;
       lastPt.current = null;
       paintAt(pt.x, pt.y, tool === "eraser");
       return;
     }
+
+    if (tool === "heal" || tool === "clone") {
+      if (tool === "clone" && !cloneSource.current) {
+        // No source yet — ignore paint (user must Ctrl/Cmd-click first)
+        return;
+      }
+      imagePainting.current = true;
+      strokeDirty.current = false;
+      cloneOffset.current = null; // recompute offset per stroke from fixed source
+      lastPt.current = null;
+      void (async () => {
+        await ensurePaintBuffer();
+        if (!imagePainting.current) return;
+        imagePaintStrokeTo(pt.x, pt.y);
+      })();
+      return;
+    }
+
     if (tool === "crop") {
       cropStart.current = pt;
       setCropRect({ x: pt.x, y: pt.y, w: 0, h: 0 });
@@ -229,6 +366,11 @@ export function EditorCanvas({
       paintAt(pt.x, pt.y, tool === "eraser");
       return;
     }
+    if (imagePainting.current) {
+      const pt = canvasPoint(e);
+      imagePaintStrokeTo(pt.x, pt.y);
+      return;
+    }
     if (tool === "crop" && cropStart.current) {
       const pt = canvasPoint(e);
       const canvas = displayRef.current;
@@ -246,7 +388,6 @@ export function EditorCanvas({
       lastPt.current = null;
       const maskCanvas = maskRef.current;
       if (maskCanvas) {
-        // Check if mask has any pixels
         const ctx = maskCanvas.getContext("2d")!;
         const data = ctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
         let has = false;
@@ -257,6 +398,21 @@ export function EditorCanvas({
           }
         }
         onMaskChange(has ? maskCanvas.toDataURL("image/png") : null);
+      }
+    }
+    if (imagePainting.current) {
+      imagePainting.current = false;
+      lastPt.current = null;
+      const buf = paintBufRef.current;
+      if (buf && strokeDirty.current) {
+        // Bake into base imageSrc; adjustments stay live in PhotoEditor snapshot
+        onImagePaint(buf.toDataURL("image/png"));
+      }
+      strokeDirty.current = false;
+      // Keep clone source; reset per-stroke offset
+      cloneOffset.current = null;
+      if (cloneSource.current) {
+        setCloneMarker({ ...cloneSource.current });
       }
     }
     if (panning.current) {
@@ -276,11 +432,13 @@ export function EditorCanvas({
   const cursor =
     tool === "pan"
       ? "grab"
-      : tool === "brush" || tool === "eraser"
+      : tool === "brush" ||
+          tool === "eraser" ||
+          tool === "heal" ||
+          tool === "clone" ||
+          tool === "crop"
         ? "crosshair"
-        : tool === "crop"
-          ? "crosshair"
-          : "default";
+        : "default";
 
   return (
     <div
@@ -294,7 +452,7 @@ export function EditorCanvas({
           </div>
           <p className="text-sm text-chrome-300">Drop an image or click Open</p>
           <p className="mt-1 text-xs text-chrome-600">
-            PNG · JPEG · WebP · shortcuts: V B E C H · Ctrl+Z
+            PNG · JPEG · WebP · shortcuts: V B E J S C H · Ctrl+Z
           </p>
         </div>
       )}
@@ -331,6 +489,23 @@ export function EditorCanvas({
                   height: cropRect.h,
                 }}
               />
+            )}
+            {tool === "clone" && cloneMarker && (
+              <div
+                className="pointer-events-none absolute z-10"
+                style={{
+                  left: cloneMarker.x,
+                  top: cloneMarker.y,
+                  transform: "translate(-50%, -50%)",
+                }}
+                title="Clone source"
+              >
+                <div className="relative h-4 w-4">
+                  <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-sky-400 shadow-[0_0_4px_rgba(56,189,248,0.9)]" />
+                  <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-sky-400 shadow-[0_0_4px_rgba(56,189,248,0.9)]" />
+                  <div className="absolute inset-0 rounded-full border border-sky-300/80" />
+                </div>
+              </div>
             )}
           </div>
         </div>

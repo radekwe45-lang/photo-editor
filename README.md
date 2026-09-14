@@ -69,6 +69,7 @@ Aperture does **not** ship model weights. You operate the backend. No CSAM featu
 - One-click presets: Neutral, Portrait, Vibrant, Cinematic, B&W, Cool, Warm
 - Hold `\` or the eye toolbar button for before/after compare (live adjustments off while held)
 - Brush / eraser mask overlay for inpaint
+- Heal and Clone soft brushes (client-side; bake into base image; Ctrl/Cmd-click sets clone source)
 - Undo / redo, zoom, pan
 - Generative panel to `POST /api/edit` with Mock/Live API badge (`GET /api/edit`)
 - Export PNG / JPEG / WebP
@@ -133,7 +134,8 @@ Aperture **nie** zawiera wag modeli. Ty kontrolujesz backend. Brak funkcji CSAM 
 - Ekspozycja / kontrast / nasycenie / temperatura / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / HSL kolor selektywny (8 zakresow) / 3-way color grading (Shadows / Midtones / Highlights — kola kolorow) / redukcja szumu luminancji + koloru / krzywe tonalne master+RGB z histogramem na zywo
 - Presety jednym kliknieciem: Neutral, Portrait, Vibrant, Cinematic, B&W, Cool, Warm
 - Porownanie przed/po: przytrzymaj `\` lub ikone oka na pasku
-- Maska pedzlem, cofnij/ponow, zoom
+- Maska pedzlem; pedzle Heal i Clone (lokalnie, bez ML; Ctrl/Cmd-klik ustawia zrodlo clone)
+- Cofnij/ponow, zoom
 - Panel generatywny (`/api/edit`) z odznaka Mock/Live API
 - Eksport PNG / JPEG / WebP
 
