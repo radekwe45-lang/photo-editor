@@ -52,6 +52,20 @@ export interface NoiseReduction {
   color: number;
 }
 
+/** Per-region color grading (hue wheel + saturation). sat 0 = no effect. */
+export interface ColorGradeRegion {
+  /** Hue degrees 0..360 */
+  hue: number;
+  /** Saturation / strength 0..100 */
+  saturation: number;
+}
+
+export interface ColorGrading {
+  shadows: ColorGradeRegion;
+  midtones: ColorGradeRegion;
+  highlights: ColorGradeRegion;
+}
+
 export interface Adjustments {
   exposure: number; // -100..100
   contrast: number; // -100..100
@@ -66,6 +80,7 @@ export interface Adjustments {
   dehaze: number; // 0..100 haze cut
   hsl: SelectiveHsl;
   noise: NoiseReduction;
+  colorGrading: ColorGrading;
   curves: ToneCurves;
 }
 
@@ -137,6 +152,21 @@ export const DEFAULT_NOISE: NoiseReduction = {
   color: 0,
 };
 
+const IDENTITY_GRADE_REGION: ColorGradeRegion = {
+  hue: 0,
+  saturation: 0,
+};
+
+export function createDefaultColorGrading(): ColorGrading {
+  return {
+    shadows: { ...IDENTITY_GRADE_REGION },
+    midtones: { ...IDENTITY_GRADE_REGION },
+    highlights: { ...IDENTITY_GRADE_REGION },
+  };
+}
+
+export const DEFAULT_COLOR_GRADING: ColorGrading = createDefaultColorGrading();
+
 export const DEFAULT_TONE_CURVES: ToneCurves = {
   master: [...IDENTITY_CURVE_POINTS],
   r: [...IDENTITY_CURVE_POINTS],
@@ -158,6 +188,7 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   dehaze: 0,
   hsl: createDefaultSelectiveHsl(),
   noise: { ...DEFAULT_NOISE },
+  colorGrading: createDefaultColorGrading(),
   curves: {
     master: [...IDENTITY_CURVE_POINTS],
     r: [...IDENTITY_CURVE_POINTS],
@@ -196,6 +227,7 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       dehaze: 0,
       hsl: createDefaultSelectiveHsl(),
       noise: { ...DEFAULT_NOISE },
+      colorGrading: createDefaultColorGrading(),
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -221,6 +253,7 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       dehaze: 8,
       hsl: createDefaultSelectiveHsl(),
       noise: { ...DEFAULT_NOISE },
+      colorGrading: createDefaultColorGrading(),
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -246,6 +279,11 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       dehaze: 12,
       hsl: createDefaultSelectiveHsl(),
       noise: { ...DEFAULT_NOISE },
+      colorGrading: {
+        shadows: { hue: 195, saturation: 28 },
+        midtones: { hue: 0, saturation: 0 },
+        highlights: { hue: 32, saturation: 22 },
+      },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -271,6 +309,7 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       dehaze: 6,
       hsl: createDefaultSelectiveHsl(),
       noise: { ...DEFAULT_NOISE },
+      colorGrading: createDefaultColorGrading(),
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -296,6 +335,11 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       dehaze: 10,
       hsl: createDefaultSelectiveHsl(),
       noise: { ...DEFAULT_NOISE },
+      colorGrading: {
+        shadows: { hue: 210, saturation: 24 },
+        midtones: { hue: 200, saturation: 14 },
+        highlights: { hue: 220, saturation: 10 },
+      },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],
@@ -321,6 +365,11 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       dehaze: 4,
       hsl: createDefaultSelectiveHsl(),
       noise: { ...DEFAULT_NOISE },
+      colorGrading: {
+        shadows: { hue: 20, saturation: 14 },
+        midtones: { hue: 35, saturation: 18 },
+        highlights: { hue: 42, saturation: 22 },
+      },
       curves: {
         master: [...IDENTITY_CURVE_POINTS],
         r: [...IDENTITY_CURVE_POINTS],

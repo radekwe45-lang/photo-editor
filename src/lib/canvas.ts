@@ -32,6 +32,8 @@ export function applyAdjustments(
   const skipHsl = !hsl || isIdentityHsl(hsl);
   const noiseLum = Math.max(0, Math.min(100, adj.noise?.luminance ?? 0));
   const noiseColor = Math.max(0, Math.min(100, adj.noise?.color ?? 0));
+  const grading = adj.colorGrading;
+  const skipGrading = !grading || isIdentityColorGrading(grading);
   if (
     adj.exposure === 0 &&
     adj.contrast === 0 &&
@@ -45,6 +47,7 @@ export function applyAdjustments(
     adj.clarity === 0 &&
     adj.dehaze === 0 &&
     skipHsl &&
+    skipGrading &&
     noiseLum === 0 &&
     noiseColor === 0 &&
     skipCurves
@@ -145,6 +148,15 @@ export function applyAdjustments(
       r = adjRgb[0];
       g = adjRgb[1];
       b = adjRgb[2];
+    }
+
+    // 3-way color grading after primary/HSL, before tone curves
+    // (creative lift/gamma/gain-style tint; curves remain the final tonal shaper).
+    if (!skipGrading) {
+      const graded = applyColorGrading(r, g, b, grading);
+      r = graded[0];
+      g = graded[1];
+      b = graded[2];
     }
 
     if (curveLuts) {
@@ -362,6 +374,90 @@ function applySelectiveHsl(
   const l1 = Math.max(0, Math.min(1, l0 + dl * 0.35));
   return hslToRgb(h1, s1, l1);
 }
+
+function isIdentityColorGrading(g: NonNullable<Adjustments["colorGrading"]>): boolean {
+  return (
+    (g.shadows?.saturation ?? 0) === 0 &&
+    (g.midtones?.saturation ?? 0) === 0 &&
+    (g.highlights?.saturation ?? 0) === 0
+  );
+}
+
+/** Smooth luminance masks for shadows / midtones / highlights (no hard clip). */
+function tonalMasks(lum: number): [number, number, number] {
+  const l = Math.max(0, Math.min(1, lum));
+  // Soft polynomial falloffs that overlap and normalize to ~1
+  const s = (1 - l) * (1 - l);
+  const h = l * l;
+  let m = 1 - Math.abs(l - 0.5) * 2;
+  m = m * m;
+  const sum = s + m + h || 1;
+  return [s / sum, m / sum, h / sum];
+}
+
+/**
+ * Luma-preserving blend toward a hue at given saturation strength.
+ * amount is 0..1 after mask weighting.
+ */
+function blendTowardHue(
+  r: number,
+  g: number,
+  b: number,
+  hue: number,
+  amount: number
+): [number, number, number] {
+  if (amount <= 0.0001) return [r, g, b];
+  const [tr, tg, tb] = hslToRgb(hue, 1, 0.5);
+  const srcL = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const tgtL = 0.2126 * tr + 0.7152 * tg + 0.0722 * tb || 1;
+  const scale = srcL / tgtL;
+  const gr = tr * scale;
+  const gg = tg * scale;
+  const gb = tb * scale;
+  const a = Math.max(0, Math.min(1, amount));
+  return [
+    r + (gr - r) * a,
+    g + (gg - g) * a,
+    b + (gb - b) * a,
+  ];
+}
+
+function applyColorGrading(
+  r: number,
+  g: number,
+  b: number,
+  grading: NonNullable<Adjustments["colorGrading"]>
+): [number, number, number] {
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const [ws, wm, wh] = tonalMasks(lum);
+  // Global strength so sat=100 is noticeable but not crushed
+  const STRENGTH = 0.72;
+  let outR = r;
+  let outG = g;
+  let outB = b;
+
+  const regions: { key: "shadows" | "midtones" | "highlights"; w: number }[] = [
+    { key: "shadows", w: ws },
+    { key: "midtones", w: wm },
+    { key: "highlights", w: wh },
+  ];
+
+  for (const { key, w } of regions) {
+    const region = grading[key];
+    if (!region) continue;
+    const sat = Math.max(0, Math.min(100, region.saturation)) / 100;
+    if (sat <= 0 || w <= 0) continue;
+    const hue = ((region.hue % 360) + 360) % 360;
+    const amt = sat * w * STRENGTH;
+    const blended = blendTowardHue(outR, outG, outB, hue, amt);
+    outR = blended[0];
+    outG = blended[1];
+    outB = blended[2];
+  }
+
+  return [outR, outG, outB];
+}
+
 
 /**
  * MVP noise reduction: blur luma and/or chroma and blend by amount.

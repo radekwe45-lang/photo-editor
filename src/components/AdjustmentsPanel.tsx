@@ -10,6 +10,7 @@ import {
   createDefaultSelectiveHsl,
 } from "@/lib/types";
 import { curvesEqual } from "@/lib/curves";
+import { ColorGradingWheels } from "./ColorGradingWheels";
 
 interface Props {
   value: Adjustments;
@@ -82,6 +83,18 @@ function noiseEqual(
   return a.luminance === b.luminance && a.color === b.color;
 }
 
+function colorGradingEqual(
+  a: Adjustments["colorGrading"],
+  b: Adjustments["colorGrading"]
+): boolean {
+  for (const key of ["shadows", "midtones", "highlights"] as const) {
+    if (a[key].hue !== b[key].hue || a[key].saturation !== b[key].saturation) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function presetActive(value: Adjustments, preset: Adjustments): boolean {
   return (
     value.exposure === preset.exposure &&
@@ -97,6 +110,7 @@ function presetActive(value: Adjustments, preset: Adjustments): boolean {
     value.dehaze === preset.dehaze &&
     hslEqual(value.hsl, preset.hsl) &&
     noiseEqual(value.noise, preset.noise) &&
+    colorGradingEqual(value.colorGrading, preset.colorGrading) &&
     curvesEqual(value.curves, preset.curves)
   );
 }
@@ -169,6 +183,11 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
                     ...preset.adjustments,
                     hsl: createDefaultSelectiveHsl(),
                     noise: { ...preset.adjustments.noise },
+                    colorGrading: {
+                      shadows: { ...preset.adjustments.colorGrading.shadows },
+                      midtones: { ...preset.adjustments.colorGrading.midtones },
+                      highlights: { ...preset.adjustments.colorGrading.highlights },
+                    },
                   });
                   setTimeout(onCommit, 0);
                 }}
@@ -331,6 +350,13 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
           onCommit={onCommit}
         />
       </div>
+
+      <ColorGradingWheels
+        value={value.colorGrading}
+        disabled={disabled}
+        onChange={(colorGrading) => onChange({ ...value, colorGrading })}
+        onCommit={onCommit}
+      />
 
       <div className="space-y-3 border-t border-white/5 pt-3">
         <div className="text-[11px] uppercase tracking-wider text-chrome-500">
