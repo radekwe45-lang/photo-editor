@@ -11,6 +11,8 @@ import {
   RotateCcw,
   RotateCw,
   Eraser,
+  Crosshair,
+  Stamp,
   Undo2,
   ZoomIn,
   ZoomOut,
@@ -130,6 +132,12 @@ export function Toolbar(props: ToolbarProps) {
       </ToolBtn>
       <ToolBtn title="Eraser mask (E)" active={tool === "eraser"} onClick={() => onTool("eraser")} disabled={!hasImage}>
         <Eraser size={16} />
+      </ToolBtn>
+      <ToolBtn title="Heal (J)" active={tool === "heal"} onClick={() => onTool("heal")} disabled={!hasImage}>
+        <Crosshair size={16} />
+      </ToolBtn>
+      <ToolBtn title="Clone stamp (S) — Ctrl/Cmd-click sets source" active={tool === "clone"} onClick={() => onTool("clone")} disabled={!hasImage}>
+        <Stamp size={16} />
       </ToolBtn>
 
       <Divider />

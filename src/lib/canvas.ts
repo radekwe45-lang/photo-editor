@@ -692,3 +692,141 @@ export function applyMockEditFilter(canvas: HTMLCanvasElement): void {
   ctx.putImageData(imageData, 0, 0);
   stampDemoWatermark(canvas);
 }
+
+/** Soft circular brush stamp: radial alpha falloff 1→0 from center to radius. */
+export function createSoftBrushMask(radius: number): HTMLCanvasElement {
+  const size = Math.max(2, Math.ceil(radius * 2));
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d")!;
+  const cx = size / 2;
+  const cy = size / 2;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.45, "rgba(255,255,255,0.85)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return c;
+}
+
+/**
+ * Soft-clone a circular patch from (sx,sy) onto (dx,dy) on the same canvas.
+ * Operates on the base pixel buffer (no live adjustments).
+ */
+export function softCloneStamp(
+  ctx: CanvasRenderingContext2D,
+  srcCanvas: HTMLCanvasElement,
+  dx: number,
+  dy: number,
+  sx: number,
+  sy: number,
+  radius: number,
+  opacity = 0.85
+): void {
+  const r = Math.max(1, radius);
+  const size = Math.ceil(r * 2);
+  const half = size / 2;
+
+  const patch = document.createElement("canvas");
+  patch.width = size;
+  patch.height = size;
+  const pctx = patch.getContext("2d")!;
+
+  // Source patch centered on (sx, sy)
+  pctx.drawImage(srcCanvas, sx - half, sy - half, size, size, 0, 0, size, size);
+
+  // Soft edge via destination-in radial mask
+  const mask = createSoftBrushMask(r);
+  pctx.globalCompositeOperation = "destination-in";
+  pctx.drawImage(mask, 0, 0);
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.drawImage(patch, dx - half, dy - half);
+  ctx.restore();
+}
+
+/**
+ * Spot-heal dab: sample a ring around the brush and soft-blend into the center.
+ * Pure client-side (no ML) — good for small blemishes on fairly uniform areas.
+ */
+export function softHealStamp(
+  ctx: CanvasRenderingContext2D,
+  srcCanvas: HTMLCanvasElement,
+  cx: number,
+  cy: number,
+  radius: number,
+  opacity = 0.9
+): void {
+  const r = Math.max(1, radius);
+  const size = Math.ceil(r * 2);
+  const half = size / 2;
+  const w = srcCanvas.width;
+  const h = srcCanvas.height;
+
+  // Sample ring average BEFORE writing so we read pristine surrounding pixels
+  const sctx = srcCanvas.getContext("2d")!;
+  const ringInner = r * 1.15;
+  const ringOuter = r * 2.1;
+  const sampleR = Math.ceil(ringOuter);
+  const x0 = Math.max(0, Math.floor(cx - sampleR));
+  const y0 = Math.max(0, Math.floor(cy - sampleR));
+  const x1 = Math.min(w, Math.ceil(cx + sampleR));
+  const y1 = Math.min(h, Math.ceil(cy + sampleR));
+  const sw = x1 - x0;
+  const sh = y1 - y0;
+
+  let ar = 0;
+  let ag = 0;
+  let ab = 0;
+  let n = 0;
+  if (sw > 0 && sh > 0) {
+    const data = sctx.getImageData(x0, y0, sw, sh).data;
+    for (let py = 0; py < sh; py++) {
+      for (let px = 0; px < sw; px++) {
+        const dx = x0 + px - cx;
+        const dy = y0 + py - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist >= ringInner && dist <= ringOuter) {
+          const i = (py * sw + px) * 4;
+          ar += data[i];
+          ag += data[i + 1];
+          ab += data[i + 2];
+          n++;
+        }
+      }
+    }
+  }
+
+  // Sample origin on a ring ~1.6× radius outside the dab (prefer upward)
+  const sampleDist = r * 1.6;
+  let sx = cx;
+  let sy = cy - sampleDist;
+  if (sy < r) sy = cy + sampleDist;
+  sx = Math.max(r, Math.min(w - r, sx));
+  sy = Math.max(r, Math.min(h - r, sy));
+
+  softCloneStamp(ctx, srcCanvas, cx, cy, sx, sy, r, opacity * 0.75);
+
+  if (n === 0) return;
+  ar = Math.round(ar / n);
+  ag = Math.round(ag / n);
+  ab = Math.round(ab / n);
+
+  const fill = document.createElement("canvas");
+  fill.width = size;
+  fill.height = size;
+  const fctx = fill.getContext("2d")!;
+  fctx.fillStyle = `rgb(${ar},${ag},${ab})`;
+  fctx.fillRect(0, 0, size, size);
+  const mask = createSoftBrushMask(r);
+  fctx.globalCompositeOperation = "destination-in";
+  fctx.drawImage(mask, 0, 0);
+
+  ctx.save();
+  ctx.globalAlpha = opacity * 0.35;
+  ctx.drawImage(fill, cx - half, cy - half);
+  ctx.restore();
+}

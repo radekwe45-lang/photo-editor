@@ -228,6 +228,16 @@ export function PhotoEditor() {
     });
   }
 
+  /** Heal/clone bake into base imageSrc; keep live adjustments (unlike geometry bake). */
+  function onImagePaint(dataUrl: string) {
+    if (!snap) return;
+    commitSnapshot({
+      imageSrc: dataUrl,
+      maskSrc: snap.maskSrc,
+      adjustments: liveAdj,
+    });
+  }
+
   function onAdjCommit() {
     if (!snap) return;
     if (adjustmentsEqual(liveAdj, snap.adjustments)) {
@@ -348,6 +358,8 @@ export function PhotoEditor() {
       if (k === "c") setTool("crop");
       if (k === "b") setTool("brush");
       if (k === "e") setTool("eraser");
+      if (k === "j") setTool("heal");
+      if (k === "s") setTool("clone");
       if (k === " " && hasImage) {
         e.preventDefault();
         setTool("pan");
@@ -469,8 +481,11 @@ export function PhotoEditor() {
               <span className="kbd">V</span><span>Select</span>
               <span className="kbd">B</span><span>Brush mask</span>
               <span className="kbd">E</span><span>Eraser</span>
+              <span className="kbd">J</span><span>Heal</span>
+              <span className="kbd">S</span><span>Clone stamp</span>
               <span className="kbd">C</span><span>Crop</span>
               <span className="kbd">H</span><span>Pan</span>
+              <span className="kbd">⌘Click</span><span>Clone source</span>
               <span className="kbd">\\</span><span>Hold: before / after</span>
               <span className="kbd">⌘Z</span><span>Undo</span>
               <span className="kbd">⌘⇧Z</span><span>Redo</span>
@@ -489,6 +504,7 @@ export function PhotoEditor() {
             brushSize={brushSize}
             cropAspect={cropAspect}
             onMaskChange={onMaskChange}
+            onImagePaint={onImagePaint}
             onCropApply={onCropApply}
             panOffset={panOffset}
             onPanOffset={setPanOffset}

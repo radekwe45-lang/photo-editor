@@ -3,6 +3,8 @@ export type Tool =
   | "crop"
   | "brush"
   | "eraser"
+  | "heal"
+  | "clone"
   | "pan";
 
 export type ExportFormat = "png" | "jpeg" | "webp";
