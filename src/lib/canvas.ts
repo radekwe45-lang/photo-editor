@@ -597,6 +597,116 @@ function clamp(v: number): number {
   return Math.max(0, Math.min(255, v | 0));
 }
 
+
+/**
+ * Keystone / perspective correction.
+ * horizontal & vertical: −100..100.
+ * Positive vertical: corrects upward lean (samples a narrower top).
+ * Positive horizontal: corrects rightward lean (samples a shorter right edge).
+ * Maps the source trapezoid onto a full rectangular output via bilinear sampling.
+ */
+export function perspectiveCanvas(
+  source: HTMLCanvasElement,
+  horizontal: number,
+  vertical: number
+): HTMLCanvasElement {
+  const hAmt = Math.max(-1, Math.min(1, horizontal / 100));
+  const vAmt = Math.max(-1, Math.min(1, vertical / 100));
+  if (hAmt === 0 && vAmt === 0) return source;
+
+  const w = source.width;
+  const h = source.height;
+  const maxInsetX = w * 0.4;
+  const maxInsetY = h * 0.4;
+
+  let tlX = 0;
+  let tlY = 0;
+  let trX = w - 1;
+  let trY = 0;
+  let brX = w - 1;
+  let brY = h - 1;
+  let blX = 0;
+  let blY = h - 1;
+
+  if (vAmt > 0) {
+    const inset = vAmt * maxInsetX;
+    tlX += inset;
+    trX -= inset;
+  } else if (vAmt < 0) {
+    const inset = -vAmt * maxInsetX;
+    blX += inset;
+    brX -= inset;
+  }
+
+  if (hAmt > 0) {
+    const inset = hAmt * maxInsetY;
+    trY += inset;
+    brY -= inset;
+  } else if (hAmt < 0) {
+    const inset = -hAmt * maxInsetY;
+    tlY += inset;
+    blY -= inset;
+  }
+
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext("2d")!;
+  const sctx = source.getContext("2d")!;
+  const srcData = sctx.getImageData(0, 0, w, h);
+  const outData = octx.createImageData(w, h);
+  const sd = srcData.data;
+  const od = outData.data;
+
+  const sample = (sx: number, sy: number, oi: number) => {
+    const x0 = Math.floor(sx);
+    const y0 = Math.floor(sy);
+    const x1 = x0 + 1;
+    const y1 = y0 + 1;
+    if (x0 < 0 || y0 < 0 || x1 >= w || y1 >= h) {
+      const cx = Math.max(0, Math.min(w - 1, Math.round(sx)));
+      const cy = Math.max(0, Math.min(h - 1, Math.round(sy)));
+      const si = (cy * w + cx) * 4;
+      od[oi] = sd[si];
+      od[oi + 1] = sd[si + 1];
+      od[oi + 2] = sd[si + 2];
+      od[oi + 3] = sd[si + 3];
+      return;
+    }
+    const fx = sx - x0;
+    const fy = sy - y0;
+    const i00 = (y0 * w + x0) * 4;
+    const i10 = (y0 * w + x1) * 4;
+    const i01 = (y1 * w + x0) * 4;
+    const i11 = (y1 * w + x1) * 4;
+    for (let c = 0; c < 4; c++) {
+      od[oi + c] = Math.round(
+        sd[i00 + c] * (1 - fx) * (1 - fy) +
+          sd[i10 + c] * fx * (1 - fy) +
+          sd[i01 + c] * (1 - fx) * fy +
+          sd[i11 + c] * fx * fy
+      );
+    }
+  };
+
+  for (let y = 0; y < h; y++) {
+    const vv = h === 1 ? 0 : y / (h - 1);
+    for (let x = 0; x < w; x++) {
+      const uu = w === 1 ? 0 : x / (w - 1);
+      const topX = tlX + (trX - tlX) * uu;
+      const topY = tlY + (trY - tlY) * uu;
+      const botX = blX + (brX - blX) * uu;
+      const botY = blY + (brY - blY) * uu;
+      const sx = topX + (botX - topX) * vv;
+      const sy = topY + (botY - topY) * vv;
+      sample(sx, sy, (y * w + x) * 4);
+    }
+  }
+
+  octx.putImageData(outData, 0, 0);
+  return out;
+}
+
 export function canvasToBlob(
   canvas: HTMLCanvasElement,
   type: string,
