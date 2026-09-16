@@ -68,6 +68,31 @@ export interface ColorGrading {
   highlights: ColorGradeRegion;
 }
 
+
+export interface GraduatedFilter {
+  exposure: number;
+  contrast: number;
+  saturation: number;
+  temperature: number;
+  angle: number; // 0..360
+  midpoint: number; // 0..100
+  feather: number; // 0..100
+  invert: boolean;
+}
+
+export interface RadialFilter {
+  exposure: number;
+  contrast: number;
+  saturation: number;
+  temperature: number;
+  centerX: number; // 0..100
+  centerY: number; // 0..100
+  radiusX: number; // 0..100
+  radiusY: number; // 0..100
+  feather: number; // 0..100
+  invert: boolean;
+}
+
 export interface Adjustments {
   exposure: number; // -100..100
   contrast: number; // -100..100
@@ -84,6 +109,8 @@ export interface Adjustments {
   noise: NoiseReduction;
   colorGrading: ColorGrading;
   curves: ToneCurves;
+  graduated: GraduatedFilter;
+  radial: RadialFilter;
 }
 
 export interface EditorSnapshot {
@@ -176,6 +203,39 @@ export const DEFAULT_TONE_CURVES: ToneCurves = {
   b: [...IDENTITY_CURVE_POINTS],
 };
 
+
+export const DEFAULT_GRADUATED: GraduatedFilter = {
+  exposure: 0,
+  contrast: 0,
+  saturation: 0,
+  temperature: 0,
+  angle: 90,
+  midpoint: 50,
+  feather: 50,
+  invert: false,
+};
+
+export const DEFAULT_RADIAL: RadialFilter = {
+  exposure: 0,
+  contrast: 0,
+  saturation: 0,
+  temperature: 0,
+  centerX: 50,
+  centerY: 50,
+  radiusX: 40,
+  radiusY: 40,
+  feather: 50,
+  invert: false,
+};
+
+export function createDefaultGraduated(): GraduatedFilter {
+  return { ...DEFAULT_GRADUATED };
+}
+
+export function createDefaultRadial(): RadialFilter {
+  return { ...DEFAULT_RADIAL };
+}
+
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
   exposure: 0,
   contrast: 0,
@@ -197,6 +257,8 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
     g: [...IDENTITY_CURVE_POINTS],
     b: [...IDENTITY_CURVE_POINTS],
   },
+  graduated: createDefaultGraduated(),
+  radial: createDefaultRadial(),
 };
 
 export interface AdjustmentPreset {
@@ -236,6 +298,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
         g: [...IDENTITY_CURVE_POINTS],
         b: [...IDENTITY_CURVE_POINTS],
       },
+      graduated: createDefaultGraduated(),
+      radial: createDefaultRadial(),
     },
   },
   {
@@ -262,6 +326,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
         g: [...IDENTITY_CURVE_POINTS],
         b: [...IDENTITY_CURVE_POINTS],
       },
+      graduated: createDefaultGraduated(),
+      radial: createDefaultRadial(),
     },
   },
   {
@@ -292,6 +358,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
         g: [...IDENTITY_CURVE_POINTS],
         b: [...IDENTITY_CURVE_POINTS],
       },
+      graduated: createDefaultGraduated(),
+      radial: createDefaultRadial(),
     },
   },
   {
@@ -318,6 +386,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
         g: [...IDENTITY_CURVE_POINTS],
         b: [...IDENTITY_CURVE_POINTS],
       },
+      graduated: createDefaultGraduated(),
+      radial: createDefaultRadial(),
     },
   },
   {
@@ -348,6 +418,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
         g: [...IDENTITY_CURVE_POINTS],
         b: [...IDENTITY_CURVE_POINTS],
       },
+      graduated: createDefaultGraduated(),
+      radial: createDefaultRadial(),
     },
   },
   {
@@ -378,6 +450,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
         g: [...IDENTITY_CURVE_POINTS],
         b: [...IDENTITY_CURVE_POINTS],
       },
+      graduated: createDefaultGraduated(),
+      radial: createDefaultRadial(),
     },
   },
 ];

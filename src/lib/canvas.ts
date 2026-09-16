@@ -1,4 +1,4 @@
-import type { Adjustments } from "./types";
+import type { Adjustments, GraduatedFilter, RadialFilter } from "./types";
 import {
   buildCurveLuts,
   computeHistogram,
@@ -34,6 +34,10 @@ export function applyAdjustments(
   const noiseColor = Math.max(0, Math.min(100, adj.noise?.color ?? 0));
   const grading = adj.colorGrading;
   const skipGrading = !grading || isIdentityColorGrading(grading);
+  const graduated = adj.graduated;
+  const radial = adj.radial;
+  const skipGraduated = !graduated || isIdentityLocalTone(graduated);
+  const skipRadial = !radial || isIdentityLocalTone(radial);
   if (
     adj.exposure === 0 &&
     adj.contrast === 0 &&
@@ -50,7 +54,9 @@ export function applyAdjustments(
     skipGrading &&
     noiseLum === 0 &&
     noiseColor === 0 &&
-    skipCurves
+    skipCurves &&
+    skipGraduated &&
+    skipRadial
   ) {
     return;
   }
@@ -171,6 +177,47 @@ export function applyAdjustments(
       b = curveLuts.master[bi];
     }
 
+    // Local filters (graduated / radial) after global tone/HSL/grading/curves,
+    // before vignette — same blend: out = base + (filtered - base) * mask.
+    if (!skipGraduated || !skipRadial) {
+      const px = (i / 4) % width;
+      const py = Math.floor(i / 4 / width);
+      if (!skipGraduated) {
+        const m = graduatedMask(px, py, width, height, graduated);
+        if (m > 0) {
+          const filtered = applyLocalTone(
+            r,
+            g,
+            b,
+            graduated.exposure,
+            graduated.contrast,
+            graduated.saturation,
+            graduated.temperature
+          );
+          r = r + (filtered[0] - r) * m;
+          g = g + (filtered[1] - g) * m;
+          b = b + (filtered[2] - b) * m;
+        }
+      }
+      if (!skipRadial) {
+        const m = radialMask(px, py, width, height, radial);
+        if (m > 0) {
+          const filtered = applyLocalTone(
+            r,
+            g,
+            b,
+            radial.exposure,
+            radial.contrast,
+            radial.saturation,
+            radial.temperature
+          );
+          r = r + (filtered[0] - r) * m;
+          g = g + (filtered[1] - g) * m;
+          b = b + (filtered[2] - b) * m;
+        }
+      }
+    }
+
     if (vignette > 0) {
       const px = (i / 4) % width;
       const py = Math.floor(i / 4 / width);
@@ -199,6 +246,120 @@ export function applyAdjustments(
   }
 
   ctx.putImageData(imageData, 0, 0);
+}
+
+
+function isIdentityLocalTone(f: {
+  exposure: number;
+  contrast: number;
+  saturation: number;
+  temperature: number;
+}): boolean {
+  return (
+    f.exposure === 0 &&
+    f.contrast === 0 &&
+    f.saturation === 0 &&
+    f.temperature === 0
+  );
+}
+
+/** Smoothstep hermite for soft mask edges (t in 0..1). */
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  if (edge0 === edge1) return x < edge0 ? 0 : 1;
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Local exposure/contrast/sat/temp — same math style as the global pass
+ * (pow2 exposure, contrast around 128, temp R/B shift, sat vs luma).
+ */
+function applyLocalTone(
+  r: number,
+  g: number,
+  b: number,
+  exposure: number,
+  contrast: number,
+  saturation: number,
+  temperature: number
+): [number, number, number] {
+  const e = exposure / 100;
+  const c = contrast / 100;
+  const s = saturation / 100;
+  const t = temperature / 100;
+  const exposureMul = Math.pow(2, e);
+  let nr = r * exposureMul;
+  let ng = g * exposureMul;
+  let nb = b * exposureMul;
+  if (c !== 0) {
+    const contrastFactor = (1 + c) / (1.0001 - c);
+    nr = (nr - 128) * contrastFactor + 128;
+    ng = (ng - 128) * contrastFactor + 128;
+    nb = (nb - 128) * contrastFactor + 128;
+  }
+  if (t !== 0) {
+    const tAmt = t * 40;
+    nr += tAmt;
+    nb -= tAmt;
+  }
+  if (s !== 0) {
+    const gray = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
+    nr = gray + (nr - gray) * (1 + s);
+    ng = gray + (ng - gray) * (1 + s);
+    nb = gray + (nb - gray) * (1 + s);
+  }
+  return [nr, ng, nb];
+}
+
+/** Linear graduated mask 0..1 along angle, with midpoint + feather. */
+function graduatedMask(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  f: GraduatedFilter
+): number {
+  const rad = ((f.angle % 360) * Math.PI) / 180;
+  const dirX = Math.cos(rad);
+  const dirY = Math.sin(rad);
+  // Normalize pixel to [-0.5, 0.5] so angle is image-aspect aware
+  const px = x / Math.max(1, width) - 0.5;
+  const py = y / Math.max(1, height) - 0.5;
+  const t = px * dirX + py * dirY;
+  // Extent of projection over the unit square ≈ half the L1 of direction
+  const extent = 0.5 * (Math.abs(dirX) + Math.abs(dirY)) || 0.5;
+  const pos = (t / extent + 1) / 2; // 0..1 along gradient axis
+  const mid = Math.max(0, Math.min(1, f.midpoint / 100));
+  const feather = Math.max(0, Math.min(1, f.feather / 100));
+  // feather 0 = hard edge; 100 = transition spans most of the axis
+  const half = Math.max(0.001, feather * 0.5);
+  let m = smoothstep(mid - half, mid + half, pos);
+  if (f.invert) m = 1 - m;
+  return m;
+}
+
+/** Soft elliptical radial mask; invert=false → effect inside. */
+function radialMask(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  f: RadialFilter
+): number {
+  const cx = (f.centerX / 100) * width;
+  const cy = (f.centerY / 100) * height;
+  // radius 0..100 as % of half width / half height
+  const rx = Math.max(1e-3, (f.radiusX / 100) * (width / 2));
+  const ry = Math.max(1e-3, (f.radiusY / 100) * (height / 2));
+  const nx = (x - cx) / rx;
+  const ny = (y - cy) / ry;
+  const dist = Math.sqrt(nx * nx + ny * ny);
+  const feather = Math.max(0, Math.min(1, f.feather / 100));
+  // Inner hard radius shrinks as feather grows (soft outer band)
+  const inner = Math.max(0, 1 - feather);
+  let m = 1 - smoothstep(inner, 1, dist);
+  if (f.invert) m = 1 - m;
+  return m;
 }
 
 /** Separable box blur on a float buffer (src -> dst). */

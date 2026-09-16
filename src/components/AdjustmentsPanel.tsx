@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { Adjustments, HslColorRange, HslRangeAdjust } from "@/lib/types";
+import type {
+  Adjustments,
+  GraduatedFilter,
+  HslColorRange,
+  HslRangeAdjust,
+  RadialFilter,
+} from "@/lib/types";
 import {
   ADJUSTMENT_PRESETS,
   DEFAULT_ADJUSTMENTS,
   HSL_COLOR_RANGES,
   HSL_RANGE_LABELS,
+  createDefaultGraduated,
+  createDefaultRadial,
   createDefaultSelectiveHsl,
 } from "@/lib/types";
 import { curvesEqual } from "@/lib/curves";
@@ -95,6 +103,35 @@ function colorGradingEqual(
   return true;
 }
 
+
+function graduatedEqual(a: GraduatedFilter, b: GraduatedFilter): boolean {
+  return (
+    a.exposure === b.exposure &&
+    a.contrast === b.contrast &&
+    a.saturation === b.saturation &&
+    a.temperature === b.temperature &&
+    a.angle === b.angle &&
+    a.midpoint === b.midpoint &&
+    a.feather === b.feather &&
+    a.invert === b.invert
+  );
+}
+
+function radialEqual(a: RadialFilter, b: RadialFilter): boolean {
+  return (
+    a.exposure === b.exposure &&
+    a.contrast === b.contrast &&
+    a.saturation === b.saturation &&
+    a.temperature === b.temperature &&
+    a.centerX === b.centerX &&
+    a.centerY === b.centerY &&
+    a.radiusX === b.radiusX &&
+    a.radiusY === b.radiusY &&
+    a.feather === b.feather &&
+    a.invert === b.invert
+  );
+}
+
 function presetActive(value: Adjustments, preset: Adjustments): boolean {
   return (
     value.exposure === preset.exposure &&
@@ -111,7 +148,9 @@ function presetActive(value: Adjustments, preset: Adjustments): boolean {
     hslEqual(value.hsl, preset.hsl) &&
     noiseEqual(value.noise, preset.noise) &&
     colorGradingEqual(value.colorGrading, preset.colorGrading) &&
-    curvesEqual(value.curves, preset.curves)
+    curvesEqual(value.curves, preset.curves) &&
+    graduatedEqual(value.graduated, preset.graduated) &&
+    radialEqual(value.radial, preset.radial)
   );
 }
 
@@ -188,6 +227,8 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
                       midtones: { ...preset.adjustments.colorGrading.midtones },
                       highlights: { ...preset.adjustments.colorGrading.highlights },
                     },
+                    graduated: { ...preset.adjustments.graduated },
+                    radial: { ...preset.adjustments.radial },
                   });
                   setTimeout(onCommit, 0);
                 }}
@@ -357,6 +398,242 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
         onChange={(colorGrading) => onChange({ ...value, colorGrading })}
         onCommit={onCommit}
       />
+
+      <div className="space-y-3 border-t border-white/5 pt-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+            Graduated
+          </div>
+          <button
+            type="button"
+            className="text-[11px] text-chrome-500 hover:text-accent"
+            disabled={disabled}
+            onClick={() => {
+              onChange({ ...value, graduated: createDefaultGraduated() });
+              setTimeout(onCommit, 0);
+            }}
+          >
+            Reset
+          </button>
+        </div>
+        <SliderRow
+          label="Exposure"
+          value={value.graduated.exposure}
+          disabled={disabled}
+          onChange={(exposure) =>
+            onChange({ ...value, graduated: { ...value.graduated, exposure } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Contrast"
+          value={value.graduated.contrast}
+          disabled={disabled}
+          onChange={(contrast) =>
+            onChange({ ...value, graduated: { ...value.graduated, contrast } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Saturation"
+          value={value.graduated.saturation}
+          disabled={disabled}
+          onChange={(saturation) =>
+            onChange({
+              ...value,
+              graduated: { ...value.graduated, saturation },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Temperature"
+          value={value.graduated.temperature}
+          disabled={disabled}
+          onChange={(temperature) =>
+            onChange({
+              ...value,
+              graduated: { ...value.graduated, temperature },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Angle"
+          value={value.graduated.angle}
+          min={0}
+          max={360}
+          disabled={disabled}
+          onChange={(angle) =>
+            onChange({ ...value, graduated: { ...value.graduated, angle } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Midpoint"
+          value={value.graduated.midpoint}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(midpoint) =>
+            onChange({ ...value, graduated: { ...value.graduated, midpoint } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Feather"
+          value={value.graduated.feather}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(feather) =>
+            onChange({ ...value, graduated: { ...value.graduated, feather } })
+          }
+          onCommit={onCommit}
+        />
+        <label className="flex items-center justify-between text-xs text-chrome-300">
+          <span>Invert</span>
+          <input
+            type="checkbox"
+            className="rounded border-chrome-600 bg-chrome-800 text-accent focus:ring-accent/40"
+            checked={value.graduated.invert}
+            disabled={disabled}
+            onChange={(e) => {
+              onChange({
+                ...value,
+                graduated: { ...value.graduated, invert: e.target.checked },
+              });
+              setTimeout(onCommit, 0);
+            }}
+          />
+        </label>
+      </div>
+
+      <div className="space-y-3 border-t border-white/5 pt-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+            Radial
+          </div>
+          <button
+            type="button"
+            className="text-[11px] text-chrome-500 hover:text-accent"
+            disabled={disabled}
+            onClick={() => {
+              onChange({ ...value, radial: createDefaultRadial() });
+              setTimeout(onCommit, 0);
+            }}
+          >
+            Reset
+          </button>
+        </div>
+        <SliderRow
+          label="Exposure"
+          value={value.radial.exposure}
+          disabled={disabled}
+          onChange={(exposure) =>
+            onChange({ ...value, radial: { ...value.radial, exposure } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Contrast"
+          value={value.radial.contrast}
+          disabled={disabled}
+          onChange={(contrast) =>
+            onChange({ ...value, radial: { ...value.radial, contrast } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Saturation"
+          value={value.radial.saturation}
+          disabled={disabled}
+          onChange={(saturation) =>
+            onChange({ ...value, radial: { ...value.radial, saturation } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Temperature"
+          value={value.radial.temperature}
+          disabled={disabled}
+          onChange={(temperature) =>
+            onChange({ ...value, radial: { ...value.radial, temperature } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Center X"
+          value={value.radial.centerX}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(centerX) =>
+            onChange({ ...value, radial: { ...value.radial, centerX } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Center Y"
+          value={value.radial.centerY}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(centerY) =>
+            onChange({ ...value, radial: { ...value.radial, centerY } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Radius X"
+          value={value.radial.radiusX}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(radiusX) =>
+            onChange({ ...value, radial: { ...value.radial, radiusX } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Radius Y"
+          value={value.radial.radiusY}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(radiusY) =>
+            onChange({ ...value, radial: { ...value.radial, radiusY } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Feather"
+          value={value.radial.feather}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(feather) =>
+            onChange({ ...value, radial: { ...value.radial, feather } })
+          }
+          onCommit={onCommit}
+        />
+        <label className="flex items-center justify-between text-xs text-chrome-300">
+          <span>Invert</span>
+          <input
+            type="checkbox"
+            className="rounded border-chrome-600 bg-chrome-800 text-accent focus:ring-accent/40"
+            checked={value.radial.invert}
+            disabled={disabled}
+            onChange={(e) => {
+              onChange({
+                ...value,
+                radial: { ...value.radial, invert: e.target.checked },
+              });
+              setTimeout(onCommit, 0);
+            }}
+          />
+        </label>
+      </div>
 
       <div className="space-y-3 border-t border-white/5 pt-3">
         <div className="text-[11px] uppercase tracking-wider text-chrome-500">
