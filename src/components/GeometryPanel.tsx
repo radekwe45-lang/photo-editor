@@ -9,6 +9,11 @@ interface Props {
   straighten: number;
   onStraighten: (v: number) => void;
   onApplyStraighten: () => void;
+  verticalKeystone: number;
+  onVerticalKeystone: (v: number) => void;
+  horizontalKeystone: number;
+  onHorizontalKeystone: (v: number) => void;
+  onApplyPerspective: () => void;
   cropToolActive: boolean;
   disabled?: boolean;
 }
@@ -19,9 +24,16 @@ export function GeometryPanel({
   straighten,
   onStraighten,
   onApplyStraighten,
+  verticalKeystone,
+  onVerticalKeystone,
+  horizontalKeystone,
+  onHorizontalKeystone,
+  onApplyPerspective,
   cropToolActive,
   disabled,
 }: Props) {
+  const hasPerspective = verticalKeystone !== 0 || horizontalKeystone !== 0;
+
   return (
     <section className="space-y-4 border-t border-white/5 pt-4">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-chrome-400">
@@ -90,6 +102,69 @@ export function GeometryPanel({
         >
           Reset
         </button>
+      </div>
+
+      <div className="space-y-3 border-t border-white/5 pt-4">
+        <div className="text-xs text-chrome-300">Perspective (keystone)</div>
+        <label className="block space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-chrome-400">Vertical</span>
+            <span className="font-mono text-chrome-500">
+              {verticalKeystone > 0 ? "+" : ""}
+              {verticalKeystone}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={-100}
+            max={100}
+            step={1}
+            value={verticalKeystone}
+            disabled={disabled}
+            className="slider"
+            onChange={(e) => onVerticalKeystone(Number(e.target.value))}
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-chrome-400">Horizontal</span>
+            <span className="font-mono text-chrome-500">
+              {horizontalKeystone > 0 ? "+" : ""}
+              {horizontalKeystone}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={-100}
+            max={100}
+            step={1}
+            value={horizontalKeystone}
+            disabled={disabled}
+            className="slider"
+            onChange={(e) => onHorizontalKeystone(Number(e.target.value))}
+          />
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn flex-1 text-xs"
+            disabled={disabled || !hasPerspective}
+            onClick={onApplyPerspective}
+          >
+            Apply perspective
+          </button>
+          <button
+            type="button"
+            className="btn text-xs"
+            disabled={disabled || !hasPerspective}
+            onClick={() => {
+              onVerticalKeystone(0);
+              onHorizontalKeystone(0);
+            }}
+          >
+            Reset
+          </button>
+        </div>
       </div>
     </section>
   );

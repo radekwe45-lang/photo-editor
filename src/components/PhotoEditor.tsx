@@ -15,6 +15,7 @@ import {
   canvasToBlob,
   flipCanvas,
   loadImage,
+  perspectiveCanvas,
   rotateCanvas,
 } from "@/lib/canvas";
 import {
@@ -108,6 +109,8 @@ export function PhotoEditor() {
   const [comparing, setComparing] = useState(false);
   const [cropAspectId, setCropAspectId] = useState<CropAspectId>("free");
   const [straighten, setStraighten] = useState(0);
+  const [verticalKeystone, setVerticalKeystone] = useState(0);
+  const [horizontalKeystone, setHorizontalKeystone] = useState(0);
 
   const cropAspect =
     CROP_ASPECT_PRESETS.find((p) => p.id === cropAspectId)?.ratio ?? null;
@@ -144,6 +147,8 @@ export function PhotoEditor() {
       setTool("select");
       setComparing(false);
       setStraighten(0);
+      setVerticalKeystone(0);
+      setHorizontalKeystone(0);
       setCropAspectId("free");
     };
     reader.readAsDataURL(file);
@@ -188,6 +193,16 @@ export function PhotoEditor() {
     const angle = straighten;
     setStraighten(0);
     await applyGeometry((c) => rotateCanvas(c, angle));
+  }
+
+  async function onApplyPerspective() {
+    if (!snap) return;
+    if (verticalKeystone === 0 && horizontalKeystone === 0) return;
+    const v = verticalKeystone;
+    const h = horizontalKeystone;
+    setVerticalKeystone(0);
+    setHorizontalKeystone(0);
+    await applyGeometry((c) => perspectiveCanvas(c, h, v));
   }
 
   async function onFlipH() {
@@ -445,6 +460,11 @@ export function PhotoEditor() {
             straighten={straighten}
             onStraighten={setStraighten}
             onApplyStraighten={() => void onApplyStraighten()}
+            verticalKeystone={verticalKeystone}
+            onVerticalKeystone={setVerticalKeystone}
+            horizontalKeystone={horizontalKeystone}
+            onHorizontalKeystone={setHorizontalKeystone}
+            onApplyPerspective={() => void onApplyPerspective()}
             cropToolActive={tool === "crop"}
             disabled={!hasImage}
           />
