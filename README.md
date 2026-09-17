@@ -65,7 +65,7 @@ Aperture does **not** ship model weights. You operate the backend. No CSAM featu
 
 - Upload / drag-and-drop images
 - Crop with aspect presets (Free, 1:1, 4:3, 3:2, 16:9, 9:16), rotate +/-90 deg, straighten (−45°…+45°), perspective keystone (vertical + horizontal), flip H/V
-- Exposure / contrast / saturation / temperature / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / HSL selective color (8 ranges) / 3-way color grading (Shadows / Midtones / Highlights wheels) / graduated + radial local filters (exposure/contrast/sat/temp under soft masks) / luminance + color noise reduction / master+RGB tone curves with live histogram (client canvas)
+- Exposure / contrast / saturation / temperature / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / HSL selective color (8 ranges) / 3-way color grading (Shadows / Midtones / Highlights wheels) / graduated + radial local filters (exposure/contrast/sat/temp under soft masks) / film grain (amount/size/roughness) / split tone (highlight & shadow hue/sat + balance) / luminance + color noise reduction / master+RGB tone curves with live histogram (client canvas)
 - One-click presets: Neutral, Portrait, Vibrant, Cinematic, B&W, Cool, Warm
 - Hold `\` or the eye toolbar button for before/after compare (live adjustments off while held)
 - Brush / eraser mask overlay for inpaint
@@ -131,7 +131,7 @@ Aperture **nie** zawiera wag modeli. Ty kontrolujesz backend. Brak funkcji CSAM 
 
 - Otwieranie / przeciaganie zdjec
 - Kadrowanie z proporcjami (Free, 1:1, 4:3, 3:2, 16:9, 9:16), obrot +/-90°, straighten (−45°…+45°), perspektywa/keystone (pion + poziom), odbicie
-- Ekspozycja / kontrast / nasycenie / temperatura / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / HSL kolor selektywny (8 zakresow) / 3-way color grading (Shadows / Midtones / Highlights — kola kolorow) / filtry lokalne graduated + radial (ekspozycja/kontrast/nasycenie/temperatura pod miekkimi maskami) / redukcja szumu luminancji + koloru / krzywe tonalne master+RGB z histogramem na zywo
+- Ekspozycja / kontrast / nasycenie / temperatura / tint / highlights / shadows / vignette / sharpen / clarity / dehaze / HSL kolor selektywny (8 zakresow) / 3-way color grading (Shadows / Midtones / Highlights — kola kolorow) / filtry lokalne graduated + radial (ekspozycja/kontrast/nasycenie/temperatura pod miekkimi maskami) / film grain (amount/size/roughness) / split tone (hue/sat highlight i shadow + balance) / redukcja szumu luminancji + koloru / krzywe tonalne master+RGB z histogramem na zywo
 - Presety jednym kliknieciem: Neutral, Portrait, Vibrant, Cinematic, B&W, Cool, Warm
 - Porownanie przed/po: przytrzymaj `\` lub ikone oka na pasku
 - Maska pedzlem; pedzle Heal i Clone (lokalnie, bez ML; Ctrl/Cmd-klik ustawia zrodlo clone)
