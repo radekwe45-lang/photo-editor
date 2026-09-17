@@ -3,19 +3,23 @@
 import { useState } from "react";
 import type {
   Adjustments,
+  FilmGrain,
   GraduatedFilter,
   HslColorRange,
   HslRangeAdjust,
   RadialFilter,
+  SplitTone,
 } from "@/lib/types";
 import {
   ADJUSTMENT_PRESETS,
   DEFAULT_ADJUSTMENTS,
   HSL_COLOR_RANGES,
   HSL_RANGE_LABELS,
+  createDefaultFilmGrain,
   createDefaultGraduated,
   createDefaultRadial,
   createDefaultSelectiveHsl,
+  createDefaultSplitTone,
 } from "@/lib/types";
 import { curvesEqual } from "@/lib/curves";
 import { ColorGradingWheels } from "./ColorGradingWheels";
@@ -132,6 +136,25 @@ function radialEqual(a: RadialFilter, b: RadialFilter): boolean {
   );
 }
 
+
+function filmGrainEqual(a: FilmGrain, b: FilmGrain): boolean {
+  return (
+    a.amount === b.amount &&
+    a.size === b.size &&
+    a.roughness === b.roughness
+  );
+}
+
+function splitToneEqual(a: SplitTone, b: SplitTone): boolean {
+  return (
+    a.highlightHue === b.highlightHue &&
+    a.highlightSaturation === b.highlightSaturation &&
+    a.shadowHue === b.shadowHue &&
+    a.shadowSaturation === b.shadowSaturation &&
+    a.balance === b.balance
+  );
+}
+
 function presetActive(value: Adjustments, preset: Adjustments): boolean {
   return (
     value.exposure === preset.exposure &&
@@ -150,7 +173,9 @@ function presetActive(value: Adjustments, preset: Adjustments): boolean {
     colorGradingEqual(value.colorGrading, preset.colorGrading) &&
     curvesEqual(value.curves, preset.curves) &&
     graduatedEqual(value.graduated, preset.graduated) &&
-    radialEqual(value.radial, preset.radial)
+    radialEqual(value.radial, preset.radial) &&
+    filmGrainEqual(value.filmGrain, preset.filmGrain) &&
+    splitToneEqual(value.splitTone, preset.splitTone)
   );
 }
 
@@ -229,6 +254,8 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
                     },
                     graduated: { ...preset.adjustments.graduated },
                     radial: { ...preset.adjustments.radial },
+                    filmGrain: { ...preset.adjustments.filmGrain },
+                    splitTone: { ...preset.adjustments.splitTone },
                   });
                   setTimeout(onCommit, 0);
                 }}
@@ -633,6 +660,149 @@ export function AdjustmentsPanel({ value, onChange, onCommit, disabled }: Props)
             }}
           />
         </label>
+      </div>
+
+
+      <div className="space-y-3 border-t border-white/5 pt-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+            Film grain
+          </div>
+          <button
+            type="button"
+            className="text-[11px] text-chrome-500 hover:text-accent"
+            disabled={disabled}
+            onClick={() => {
+              onChange({ ...value, filmGrain: createDefaultFilmGrain() });
+              setTimeout(onCommit, 0);
+            }}
+          >
+            Reset
+          </button>
+        </div>
+        <SliderRow
+          label="Amount"
+          value={value.filmGrain.amount}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(amount) =>
+            onChange({ ...value, filmGrain: { ...value.filmGrain, amount } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Size"
+          value={value.filmGrain.size}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(size) =>
+            onChange({ ...value, filmGrain: { ...value.filmGrain, size } })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Roughness"
+          value={value.filmGrain.roughness}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(roughness) =>
+            onChange({
+              ...value,
+              filmGrain: { ...value.filmGrain, roughness },
+            })
+          }
+          onCommit={onCommit}
+        />
+      </div>
+
+      <div className="space-y-3 border-t border-white/5 pt-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wider text-chrome-500">
+            Split tone
+          </div>
+          <button
+            type="button"
+            className="text-[11px] text-chrome-500 hover:text-accent"
+            disabled={disabled}
+            onClick={() => {
+              onChange({ ...value, splitTone: createDefaultSplitTone() });
+              setTimeout(onCommit, 0);
+            }}
+          >
+            Reset
+          </button>
+        </div>
+        <SliderRow
+          label="Highlight Hue"
+          value={value.splitTone.highlightHue}
+          min={0}
+          max={360}
+          disabled={disabled}
+          onChange={(highlightHue) =>
+            onChange({
+              ...value,
+              splitTone: { ...value.splitTone, highlightHue },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Highlight Saturation"
+          value={value.splitTone.highlightSaturation}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(highlightSaturation) =>
+            onChange({
+              ...value,
+              splitTone: { ...value.splitTone, highlightSaturation },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Shadow Hue"
+          value={value.splitTone.shadowHue}
+          min={0}
+          max={360}
+          disabled={disabled}
+          onChange={(shadowHue) =>
+            onChange({
+              ...value,
+              splitTone: { ...value.splitTone, shadowHue },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Shadow Saturation"
+          value={value.splitTone.shadowSaturation}
+          min={0}
+          max={100}
+          disabled={disabled}
+          onChange={(shadowSaturation) =>
+            onChange({
+              ...value,
+              splitTone: { ...value.splitTone, shadowSaturation },
+            })
+          }
+          onCommit={onCommit}
+        />
+        <SliderRow
+          label="Balance"
+          value={value.splitTone.balance}
+          disabled={disabled}
+          onChange={(balance) =>
+            onChange({
+              ...value,
+              splitTone: { ...value.splitTone, balance },
+            })
+          }
+          onCommit={onCommit}
+        />
       </div>
 
       <div className="space-y-3 border-t border-white/5 pt-3">

@@ -75,6 +75,44 @@ function colorGradingEqual(
   );
 }
 
+function filmGrainEqual(
+  a: Adjustments["filmGrain"],
+  b: Adjustments["filmGrain"]
+): boolean {
+  return (
+    a.amount === b.amount &&
+    a.size === b.size &&
+    a.roughness === b.roughness
+  );
+}
+
+function splitToneEqual(
+  a: Adjustments["splitTone"],
+  b: Adjustments["splitTone"]
+): boolean {
+  return (
+    a.highlightHue === b.highlightHue &&
+    a.highlightSaturation === b.highlightSaturation &&
+    a.shadowHue === b.shadowHue &&
+    a.shadowSaturation === b.shadowSaturation &&
+    a.balance === b.balance
+  );
+}
+
+function localFilterEqual(
+  a: Adjustments["graduated"] | Adjustments["radial"],
+  b: Adjustments["graduated"] | Adjustments["radial"]
+): boolean {
+  return (
+    a.exposure === b.exposure &&
+    a.contrast === b.contrast &&
+    a.saturation === b.saturation &&
+    a.temperature === b.temperature &&
+    a.feather === b.feather &&
+    a.invert === b.invert
+  );
+}
+
 function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
   return (
     a.exposure === b.exposure &&
@@ -92,7 +130,17 @@ function adjustmentsEqual(a: Adjustments, b: Adjustments): boolean {
     a.noise.color === b.noise.color &&
     hslEqual(a.hsl, b.hsl) &&
     colorGradingEqual(a.colorGrading, b.colorGrading) &&
-    curvesEqual(a.curves, b.curves)
+    curvesEqual(a.curves, b.curves) &&
+    localFilterEqual(a.graduated, b.graduated) &&
+    a.graduated.angle === b.graduated.angle &&
+    a.graduated.midpoint === b.graduated.midpoint &&
+    localFilterEqual(a.radial, b.radial) &&
+    a.radial.centerX === b.radial.centerX &&
+    a.radial.centerY === b.radial.centerY &&
+    a.radial.radiusX === b.radial.radiusX &&
+    a.radial.radiusY === b.radial.radiusY &&
+    filmGrainEqual(a.filmGrain, b.filmGrain) &&
+    splitToneEqual(a.splitTone, b.splitTone)
   );
 }
 

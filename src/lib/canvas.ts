@@ -1,4 +1,10 @@
-import type { Adjustments, GraduatedFilter, RadialFilter } from "./types";
+import type {
+  Adjustments,
+  FilmGrain,
+  GraduatedFilter,
+  RadialFilter,
+  SplitTone,
+} from "./types";
 import {
   buildCurveLuts,
   computeHistogram,
@@ -38,6 +44,10 @@ export function applyAdjustments(
   const radial = adj.radial;
   const skipGraduated = !graduated || isIdentityLocalTone(graduated);
   const skipRadial = !radial || isIdentityLocalTone(radial);
+  const filmGrain = adj.filmGrain;
+  const splitTone = adj.splitTone;
+  const skipGrain = !filmGrain || (filmGrain.amount ?? 0) === 0;
+  const skipSplitTone = !splitTone || isIdentitySplitTone(splitTone);
   if (
     adj.exposure === 0 &&
     adj.contrast === 0 &&
@@ -56,7 +66,9 @@ export function applyAdjustments(
     noiseColor === 0 &&
     skipCurves &&
     skipGraduated &&
-    skipRadial
+    skipRadial &&
+    skipGrain &&
+    skipSplitTone
   ) {
     return;
   }
@@ -218,6 +230,15 @@ export function applyAdjustments(
       }
     }
 
+    // Split tone after local filters / before vignette (Lightroom-style Effects-adjacent
+    // creative tint: independent highlight vs shadow hues).
+    if (!skipSplitTone) {
+      const toned = applySplitTone(r, g, b, splitTone);
+      r = toned[0];
+      g = toned[1];
+      b = toned[2];
+    }
+
     if (vignette > 0) {
       const px = (i / 4) % width;
       const py = Math.floor(i / 4 / width);
@@ -245,9 +266,145 @@ export function applyAdjustments(
     applyDetailPass(d, width, height, sharpen, clarity);
   }
 
+  // Film grain last — finishing effect after NR/detail so grain is not blurred or
+  // over-sharpened. Deterministic hash from pixel coords + image size seed (stable
+  // across slider nudges that do not change size).
+  if (!skipGrain) {
+    applyFilmGrain(d, width, height, filmGrain);
+  }
+
   ctx.putImageData(imageData, 0, 0);
 }
 
+
+
+function isIdentitySplitTone(st: SplitTone): boolean {
+  return (
+    (st.highlightSaturation ?? 0) === 0 &&
+    (st.shadowSaturation ?? 0) === 0
+  );
+}
+
+/**
+ * Independent highlight / shadow tint (Lightroom Split Toning).
+ * balance shifts the luminance pivot (− → more shadow range).
+ */
+function applySplitTone(
+  r: number,
+  g: number,
+  b: number,
+  st: SplitTone
+): [number, number, number] {
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const balance = Math.max(-1, Math.min(1, (st.balance ?? 0) / 100));
+  const pivot = 0.5 + balance * 0.35;
+  // Soft complementary masks around pivot
+  const hMask = smoothstep(pivot - 0.28, pivot + 0.28, lum);
+  const sMask = 1 - hMask;
+  const STRENGTH = 0.78;
+  let outR = r;
+  let outG = g;
+  let outB = b;
+
+  const hSat = Math.max(0, Math.min(100, st.highlightSaturation ?? 0)) / 100;
+  if (hSat > 0 && hMask > 0) {
+    const hue = ((st.highlightHue % 360) + 360) % 360;
+    const blended = blendTowardHue(outR, outG, outB, hue, hSat * hMask * STRENGTH);
+    outR = blended[0];
+    outG = blended[1];
+    outB = blended[2];
+  }
+
+  const sSat = Math.max(0, Math.min(100, st.shadowSaturation ?? 0)) / 100;
+  if (sSat > 0 && sMask > 0) {
+    const hue = ((st.shadowHue % 360) + 360) % 360;
+    const blended = blendTowardHue(outR, outG, outB, hue, sSat * sMask * STRENGTH);
+    outR = blended[0];
+    outG = blended[1];
+    outB = blended[2];
+  }
+
+  return [outR, outG, outB];
+}
+
+/** Deterministic value noise in −1..1 from integer lattice coords + seed. */
+function hashNoise2D(ix: number, iy: number, seed: number): number {
+  let n = (ix * 374761393) ^ (iy * 668265263) ^ (seed * 1274126177);
+  n = (n ^ (n >>> 13)) * 1274126177;
+  n = n ^ (n >>> 16);
+  return ((n & 0xffff) / 0xffff) * 2 - 1;
+}
+
+/** Bilinear sample of hashed lattice noise (stable, size-controllable). */
+function sampleGrainNoise(x: number, y: number, scale: number, seed: number): number {
+  const gx = x / scale;
+  const gy = y / scale;
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const fx = gx - x0;
+  const fy = gy - y0;
+  const n00 = hashNoise2D(x0, y0, seed);
+  const n10 = hashNoise2D(x0 + 1, y0, seed);
+  const n01 = hashNoise2D(x0, y0 + 1, seed);
+  const n11 = hashNoise2D(x0 + 1, y0 + 1, seed);
+  const nx0 = n00 + (n10 - n00) * fx;
+  const nx1 = n01 + (n11 - n01) * fx;
+  return nx0 + (nx1 - nx0) * fy;
+}
+
+/**
+ * Luminance-biased photographic film grain (not RGB snow).
+ * amount/size/roughness: 0..100. Identity when amount is 0.
+ * Seed derived from image dimensions so grain does not flicker on slider nudges.
+ */
+function applyFilmGrain(
+  d: Uint8ClampedArray,
+  width: number,
+  height: number,
+  grain: FilmGrain
+): void {
+  const amount = Math.max(0, Math.min(100, grain.amount ?? 0)) / 100;
+  if (amount <= 0) return;
+  const size = Math.max(0, Math.min(100, grain.size ?? 40));
+  const roughness = Math.max(0, Math.min(100, grain.roughness ?? 35)) / 100;
+  // size 0 → ~1px; size 100 → ~8px clumps
+  const scale = 1 + (size / 100) * 7;
+  const seed = (width * 73856093) ^ (height * 19349663) ^ 0x9e3779b9;
+  const seedFine = seed ^ 0x85ebca6b;
+  // Peak amplitude in 8-bit units
+  const peak = amount * 42;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      let r = d[i];
+      let g = d[i + 1];
+      let b = d[i + 2];
+      const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      // Midtone-weighted visibility (classic film); slight shadow lift
+      const mid = 1 - Math.abs(lum - 0.45) * 1.6;
+      const shadowBias = (1 - lum) * 0.35;
+      const lumaMask = Math.max(0, Math.min(1, mid * 0.75 + shadowBias));
+
+      const n1 = sampleGrainNoise(x, y, scale, seed);
+      const n2 = sampleGrainNoise(x, y, Math.max(1, scale * 0.45), seedFine);
+      // roughness blends fine octave in and slightly decorrelates channels
+      const mono = n1 * (1 - roughness * 0.55) + n2 * (roughness * 0.55);
+      const chromaBleed = roughness * 0.18;
+      const nr = mono + n2 * chromaBleed * 0.35;
+      const ng = mono;
+      const nb = mono - n2 * chromaBleed * 0.25;
+
+      const amp = peak * lumaMask;
+      r += nr * amp;
+      g += ng * amp;
+      b += nb * amp;
+      d[i] = clamp(r);
+      d[i + 1] = clamp(g);
+      d[i + 2] = clamp(b);
+    }
+  }
+}
 
 function isIdentityLocalTone(f: {
   exposure: number;

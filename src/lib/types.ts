@@ -69,6 +69,29 @@ export interface ColorGrading {
 }
 
 
+
+export interface FilmGrain {
+  /** Overall grain strength 0..100 (0 = off) */
+  amount: number;
+  /** Grain clump / particle scale 0..100 */
+  size: number;
+  /** High-frequency harshness 0..100 (0 = softer photographic) */
+  roughness: number;
+}
+
+export interface SplitTone {
+  /** Highlight tint hue 0..360 */
+  highlightHue: number;
+  /** Highlight tint strength 0..100 */
+  highlightSaturation: number;
+  /** Shadow tint hue 0..360 */
+  shadowHue: number;
+  /** Shadow tint strength 0..100 */
+  shadowSaturation: number;
+  /** Shift split pivot −100..100 (neg → more shadow range) */
+  balance: number;
+}
+
 export interface GraduatedFilter {
   exposure: number;
   contrast: number;
@@ -111,6 +134,8 @@ export interface Adjustments {
   curves: ToneCurves;
   graduated: GraduatedFilter;
   radial: RadialFilter;
+  filmGrain: FilmGrain;
+  splitTone: SplitTone;
 }
 
 export interface EditorSnapshot {
@@ -228,6 +253,29 @@ export const DEFAULT_RADIAL: RadialFilter = {
   invert: false,
 };
 
+
+export const DEFAULT_FILM_GRAIN: FilmGrain = {
+  amount: 0,
+  size: 40,
+  roughness: 35,
+};
+
+export function createDefaultFilmGrain(): FilmGrain {
+  return { ...DEFAULT_FILM_GRAIN };
+}
+
+export const DEFAULT_SPLIT_TONE: SplitTone = {
+  highlightHue: 40,
+  highlightSaturation: 0,
+  shadowHue: 220,
+  shadowSaturation: 0,
+  balance: 0,
+};
+
+export function createDefaultSplitTone(): SplitTone {
+  return { ...DEFAULT_SPLIT_TONE };
+}
+
 export function createDefaultGraduated(): GraduatedFilter {
   return { ...DEFAULT_GRADUATED };
 }
@@ -259,6 +307,8 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   },
   graduated: createDefaultGraduated(),
   radial: createDefaultRadial(),
+  filmGrain: createDefaultFilmGrain(),
+  splitTone: createDefaultSplitTone(),
 };
 
 export interface AdjustmentPreset {
@@ -300,6 +350,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       },
       graduated: createDefaultGraduated(),
       radial: createDefaultRadial(),
+      filmGrain: createDefaultFilmGrain(),
+      splitTone: createDefaultSplitTone(),
     },
   },
   {
@@ -328,6 +380,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       },
       graduated: createDefaultGraduated(),
       radial: createDefaultRadial(),
+      filmGrain: createDefaultFilmGrain(),
+      splitTone: createDefaultSplitTone(),
     },
   },
   {
@@ -360,6 +414,14 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       },
       graduated: createDefaultGraduated(),
       radial: createDefaultRadial(),
+      filmGrain: { amount: 28, size: 45, roughness: 40 },
+      splitTone: {
+        highlightHue: 38,
+        highlightSaturation: 18,
+        shadowHue: 210,
+        shadowSaturation: 22,
+        balance: -8,
+      },
     },
   },
   {
@@ -388,6 +450,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       },
       graduated: createDefaultGraduated(),
       radial: createDefaultRadial(),
+      filmGrain: createDefaultFilmGrain(),
+      splitTone: createDefaultSplitTone(),
     },
   },
   {
@@ -420,6 +484,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       },
       graduated: createDefaultGraduated(),
       radial: createDefaultRadial(),
+      filmGrain: createDefaultFilmGrain(),
+      splitTone: createDefaultSplitTone(),
     },
   },
   {
@@ -452,6 +518,8 @@ export const ADJUSTMENT_PRESETS: AdjustmentPreset[] = [
       },
       graduated: createDefaultGraduated(),
       radial: createDefaultRadial(),
+      filmGrain: createDefaultFilmGrain(),
+      splitTone: createDefaultSplitTone(),
     },
   },
 ];
